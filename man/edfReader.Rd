@@ -13,9 +13,10 @@ and then the signals (using the header object as an parameter).
 \section{edfReader functions}{
 
 \tabular{lll}{
-  readEdfHeader  \tab \verb{ } \tab to read the file header with basic info about the signals \cr
-  readEdfSignals \tab    \tab to read one or more recorded signals
+  \code{\link{readEdfHeader}}  \tab \verb{ } \tab to read the file header with basic info about the signals \cr
+  \code{\link{readEdfSignals}} \tab    \tab to read one or more recorded signals
 }
+The objects returned by these functions are described in the package vignette.
 }
 
 \section{Details}{
@@ -41,8 +42,7 @@ and then the signals (using the header object as an parameter).
    }
 }
 \seealso{
-\code{\link{readEdfHeader}}, \code{\link{readEdfSignals}}\cr
-   For the vignette use the console command:\cr
+For the vignette use the console command:\cr
    \code{vignette('edfReaderVignette', package = "edfReader")}\cr
    or click on \code{Index} below.
 }
