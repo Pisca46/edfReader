@@ -1,0 +1,286 @@
+---
+title: "edfReader vignette"
+author: "Jan Vis"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+# output: pdf_document
+vignette: >
+  %\VignetteIndexEntry{edfReader vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+# Introduction
+The European Data Format (EDF) is a simple and flexible format for exchange and storage of multichannel biological and physical signals.  It was developed by a few European 'medical' engineers who first met at the 1987 international Sleep Congress in Copenhagen. See http://www.edfplus.info/
+
+The original EDF specification has been expanded in several ways. EDF+ supports the addition of annotations and non-continuous recordings. The BDF format uses 24 bits per sample (in stead of the 16 bits per sample in EDF)
+
+This packages supports all these variants.
+
+Both EDF and BDF files consist of an header followed by one or more data records with the recorded signals, either ordinary signals or annotation signals.
+
+This package follows this structure by providing two basic functions: readEdfHeader and readEdfSignals (see the help pages for details)
+
+The examples below are based on the following two files: 
+
+- CFile an EDF+ file with a continuous recording of 11 ordinary signals and one annotation signal   
+
+- DFile a BDF+ file with a discontinuous recording of 11 ordinary signals and one annotation signal  
+
+Both files are derived from the "test_generator_2" test files from http://www.teuniz.net/edf_bdf_testfiles
+
+```{r}
+libDir <- system.file ("extdata", package="edfReader")
+CFile <- paste (libDir, '/edfPlusC.edf', sep='') # a continuously recorded EDF file
+DFile <- paste (libDir, '/bdfPlusD.bdf', sep='') # discontinuously recorded BDF file
+```
+
+# EDF headers objects
+## Introduction
+The readEdfHeader function returns a list of class 'ebdfHeader' with all the data from the EDF or BDF file header.
+Part of this list is a data frame of class 'ebdfSHeader' which contains the signal headers.
+
+##The ebdfHeader
+A file header can be read with readEdfHeader()
+```{r}
+library (edfReader)
+CHdr  <- readEdfHeader (CFile)            
+DHdr  <- readEdfHeader (DFile)                  
+```
+
+Summaries of the header data can be shown with the S3 summary () and print() functions
+```{r}
+CHdr
+summary (DHdr)
+```
+
+##The ebdfSHeader
+Summaries of the signal header data can be shown with the S3 print() and summary () functions.
+```{r}
+CHdr$sHeader
+summary (DHdr$sHeader)
+```
+
+# EDF signal objects
+## Introduction
+The readEdfSignals function with simplify=FALSE returns a list of class 'ebdfSignals' with the signals selected from the EDF / BDF file. 
+
+The signals in this list are of the following :
+
+- ordinary continuous signals   
+of class ebdfCSignal
+
+- ordinary discontinuous signals      
+of class ebdfFSignal 
+
+- annotation signals    
+of class ebdfASignal
+
+##The list of signals
+The signals in an EDF or BDF file can be read with the readEdfSignals function.
+```{r}
+CSignals <- readEdfSignals (CHdr)
+DSignals <- readEdfSignals (DHdr)
+```
+NOTE    In case only one signal was read the list of one will be simplified to this singe object. This can be prevented by using the 'simplify=FALSE' parameter.
+So readEdfSignals (CHdr, signals=7, simplify=FALSE)[[1]] and readEdfSignals (CHdr, signals=7) will return the same object.
+If required the reading can be restricted to a specific number of signals and/or a particular period.
+
+The signals are then identified by their label, signal number or signal type ('Ordinary' or 'Annotations').
+```{r}
+someCSignalsPeriod <- readEdfSignals (CHdr, signals=c(3, "5", "sine 8.5 Hz"), from=5.1, till=18)
+annoDSignalsPeriod <- readEdfSignals (DHdr, signals='Annotations', from=5.1, till=18)
+```
+Note that the period read will be - apart from rounding errors - [10.1,45). See the section "Samples, time and periods" for details.
+
+NOTE   In this case DFile is an BDF file with one annotation signal. So readEdfSignals (DHdr, signals='Annotations') will return the same object as readEdfSignals (DHdr, signals='Annotations', simplify=FALSE)[['BDF Annotations']]
+
+Summaries of the list of signals can be shown with the S3 print() and summary () functions.
+```{R}
+someCSignalsPeriod
+summary (DSignals)
+```
+NOTE    In case only one signal was read the list of one will be simplified to this singe object. This can be prevented by using the 'simplify=FALSE' parameter.
+So readEdfSignals (CHdr, signals=7, simplify=FALSE)[[1]] and readEdfSignals (CHdr, signals=7) will return the same object.
+
+##Ordinary signals, continuously recorded
+Summaries of a continuously recorded ordinary signal can be shown with the S3 print() and summary () functions.
+```{r}
+someCSignalsPeriod[[1]]
+summary (CSignals$pulse)         # a signals has its label as its name
+```
+
+##Ordinary signals, not continuously recorded
+Ordinary signals that are not continuously recorded can be read in two different ways:
+
+- as a 'continuous' sequence of samples with 'NA' values filling the gaps (use 'fragments=FALSE', the default).       
+The result is of class ebdfCSignal (the same as for a continuously recorded signal).
+
+- as a number fragments of continuously recorded parts (use 'fragments=TRUE')      
+The result is of class ebdfFSignal.
+
+The latter method will use a more complex data structure, the first may result in a (much too) huge object.
+```{r}
+CDSignals <- readEdfSignals (DHdr, from=5.1, till=18)
+FDSignals <- readEdfSignals (DHdr, fragments=TRUE)
+```
+The objects of class ebdfCSignal are summarised in the same way as continuously recorded signals.
+```{r}
+CDSignals[[8]]
+summary (CDSignals$`sine 8.5 Hz`)      # note the "`" quotes for a name with spaces.
+```
+Summaries of a not continuously recorded ordinary signal stored in fragments can be shown with the S3 print() and summary () functions.
+```{r}
+FDSignals[[8]]
+summary (FDSignals$`sine 8.5 Hz`) 
+```
+
+##Annotation signals
+Summaries of an annotation signal (ASignal) can be shown with the S3 print() and summary () functions.
+```{r}
+CSignals$`EDF Annotations`
+summary(annoDSignalsPeriod)
+```
+The "Record start annotations = 0" indicates that the record start annotations were not included, i.e. readEdfSignals was used with the parameter recordStartTimes = FALSE.    
+'Other annotations' shows the number of 'real' annotations.
+
+# Samples, time and periods.
+## Samples and time
+As usual, a recording starts at time 0 with sample 1.
+
+Consequently sample n will be at time (n-1)/sRate, where sRate denotes the sample rate.
+
+## Samples and periods
+Apart from rounding errors, a from - till period in readEdfSignals will be the period [from,till), i.e. starting at from and up to be but not including till.
+
+This may sound strange, but this convention has the following properties
+
+- the sample rate can be defined as the total number of samples divided by the total time
+
+- or, more precise, any period which is a multiple of the sample period sPeriod will always contain the same number of samples     
+i.e. for any t ≥ 0, [t, t+n*sPeriod) will always contain n samples
+
+- for any number of adjacent periods, the total number of samples will be always the sum of the samples in the individual periods.
+
+- the first sample will be ceiling(from*sRate) + 1
+
+- the last sample will be ceiling(till*sRate)
+
+- with from=t and till=t, the empty set [t,t) corresponds to [ceiling(t*sRate) + 1, ceiling(t*sRate)] which is also empty.
+
+# Object details
+
+## Header details
+### Header attributes
+The header data encompass the following:
+```{r}
+str (CHdr,  max.level=1)
+```
+The fields version, patient, recordingId, startTime, headerLength, reserved, nRecords, recordDuration, and nSignals are from the file header. The others are derived, but see below for sHeaders.
+
+### Signal header attributes
+The signal header data encompass the following:
+```{r}
+str (CHdr$sHeader, max.level=1)
+```
+The fields label, transducerType, physicalDim, physicalMin, physicalMax, digitalMin, digitalMax, preFilter, samplesPerRecord, and reserved are from the file header. The others are derived. Gain and offset are used to map the digital sample values to the range of physical values.
+
+For annotation signals the only relevant fields are "label" which must have the value "EDF Annotations" (or "BDF Annotations") and "samplesPerRecord".
+
+## Signal details
+### Ordinary signal objects of class ebdfCSignal
+The data for ordinary signal objects of class ebdfCSignal encompass the following:
+```{r}
+str(CSignals$pulse, max.level=1) 
+```
+The attributes signalNumber, label, isContinuous, transducerType, sampleBits, sRate, range, preFilter, recordedPeriod and totalPeriod are (derived) from the header data.
+
+For a continuously recorded signal the totalPeriod is equal to the recordedPeriod.
+
+The attributes from and till contain the values of the corresponding actual readEdfSignals parameters. The default values are 0 and Inf.
+
+The attributes start and fromSample contains the sample time and number for the first sample in the from-till period. They are calculated as follows:
+    from        = max (0, from)     
+    fromSample  = ceiling (sRate * from) + 1 
+    start       = (fromSample - 1) / sRate   
+    
+The signal attribute contains the sample data from the EDF / BDF data records. If read with the readEdfSignals parameter physical=TRUE, the default, the digital sample values are mapped to physical values. With physical=FALSE, signals contains the digital sample values.
+
+The physical values are calculated as follows:   
+    physicalValue = a * digitalValue + b,    
+    with:
+    a = (physicalMax - physicalMin) / (digitalMax  - digitalMin)     
+    b = physicalMax - a* digitalMax     
+
+### Ordinary signal objects of class ebdfFSignal
+The data for ordinary signal objects of class ebdfFSignal encompass the following:
+```{r}
+str(FDSignals$`sine 8.5 Hz`, max.level=1) 
+```
+For the attributes signalNumber, label, isContinuous, from, till, start, fromSample, transducerType, sampleBits, sRate, range, preFilter, recordedPeriod and totalPeriod see the previous section.
+
+For a not continuously recorded signal the total period equals the start of the last data record plus its duration.
+
+The fragments attribute contains the list of recorded fragments.
+
+### Signal fragment data
+The data of a signal fragment in objects of class ebdfFSignal encompass the following:
+```{r}
+str(FDSignals$`sine 8.5 Hz`$fragments[[1]], max.level=1) 
+```
+The fromSample contains the sample number of the first sample in this fragment (as if it were a continuous recording). The start attribute the sample time for this sample.
+
+The signal contains the fragment's sample values. These may be physical values (the default) or digital values (see above).
+
+### Annotation signals
+The data for annotation signal objects of class ebdfASignal encompass the following:
+```{r}
+str(CSignals$`EDF Annotations`, max.level=1) 
+```
+For the attributes signalNumber, label, isContinuous, from, till, recordedPeriod and totalPeriod see the section for objects of class ebdfCSignal.
+
+The annotations attribute contains a data frame with the individual annotations.
+
+### Annotation data
+The data for a single annotation encompass the following:
+```{r}
+str(CSignals$`EDF Annotations`$annotations, max.level=1) 
+```
+The record attribute refers to the data record that contains the annotation.
+
+The onset attribute contains the time of the annotation relative to the start of the recording.
+
+The duration attribute contains the duration of the annotated event.
+
+The isRecordStart indicates whether or not this annotation is the first one in a data record (and indicates the start time of the recording in that record).
+
+The annotations attribute contains one or more annotations associated with the onset and duration.
+
+# Acknowledgement
+This package has used code from
+
+- edf.R version 0.3 (27-11-2013),    
+copied from, http://www.feschet.fr/?p=11 (This link seems to be removed)
+
+- the work of Henelius Andreas as of July 2015,    
+https://github.com/bwrc/edf
+
+# References
+
+1. Specification of EDF        
+http://www.edfplus.info/specs/edf.html
+
+2. Specification of EDF+    
+http://www.edfplus.info/specs/edfplus.html
+
+3. Specification of EDF++       
+http://195.154.67.227/en/contribute/edf/
+
+4. Specification of BDF   
+see 'Which file format does BioSemi use' at     
+http://www.biosemi.com/faq/file_format.htm
+
+5. Specification of BDF+
+http://www.teuniz.net/edfbrowser/bdfplus format description.html
+
+Other useful EDF related sources can be found at:   
+http://www.edfplus.info/downloads/

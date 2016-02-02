@@ -1,0 +1,2 @@
+Version,Subject,Recording,Startdate,Startime,Bytes,Reserved,NumRec,Duration,NumSig
+.BIOSEMI,X X X X                                                                         ,Startdate 10-DEC-2009 X X test_generator                                        ,10.12.09,12.45.54,3328    ,EDF+D                                       ,10,1       ,12

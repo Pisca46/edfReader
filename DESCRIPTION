@@ -1,0 +1,17 @@
+Package: edfReader
+Type: Package
+Title: Reads EDF, EDF+, BDF, and BDF+ files
+Version: 1.0.0
+Date: 2016-02-02
+Authors@R: person ("Jan", "Vis", email = "jan@visconsultancy.eu",
+  role = c("aut", "cre"))
+Description: The edfReader package reads EDF(+) and BDF(+) files in two steps: first the header is read
+    and then the signals (using the header object as a parameter).
+License: GPL-3
+LazyData: TRUE
+Imports:
+RoxygenNote: 5.0.1
+Suggests: testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
