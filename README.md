@@ -1,5 +1,5 @@
 ### edfReader
-edfReader is an R-package [R-package](https://www.r-project.org) for reading  [European Data Format](http://www.edfplus.info) EDF(+) and [BioSemi Data Format](http://www.biosemi.com/faq/file_format.htm) BDF(+) files
+edfReader is an [R-package](https://www.r-project.org) for reading  [European Data Format](http://www.edfplus.info) EDF(+) and [BioSemi Data Format](http://www.biosemi.com/faq/file_format.htm) BDF(+) files
 
 ### Installation
 To install the edfReader package in R, proceed as follows in R.\cr
