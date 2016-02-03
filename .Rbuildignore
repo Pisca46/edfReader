@@ -2,3 +2,6 @@
 ^\.Rproj\.user$
 ^edfSamples$
 ^private$
+^README\.Rmd$
+^README\.md$
+^README-.*\.png$
