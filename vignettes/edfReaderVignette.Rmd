@@ -3,16 +3,15 @@ title: "edfReader vignette"
 author: "Jan Vis"
 date: "`r Sys.Date()`"
 output: rmarkdown::html_vignette
-# output: pdf_document
 vignette: >
   %\VignetteIndexEntry{edfReader vignette}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
 # Introduction
-The European Data Format (EDF) is a simple and flexible format for exchange and storage of multichannel biological and physical signals.  It was developed by a few European 'medical' engineers who first met at the 1987 international Sleep Congress in Copenhagen. See http://www.edfplus.info/
+The [European Data Format](http://www.edfplus.info) (EDF) is a simple and flexible format for exchange and storage of multichannel biological and physical signals.  It was developed by a few European 'medical' engineers who first met at the 1987 international Sleep Congress in Copenhagen. See http://www.edfplus.info/
 
-The original EDF specification has been expanded in several ways. EDF+ supports the addition of annotations and non-continuous recordings. The BDF format uses 24 bits per sample (in stead of the 16 bits per sample in EDF)
+The original EDF specification has been expanded in several ways. EDF+ supports the addition of annotations and non-continuous recordings. The [BioSemi Data Format](http://www.biosemi.com/faq/file_format.htm) BDF format uses 24 bits per sample (in stead of the 16 bits per sample in EDF). And [BDF+](http://www.teuniz.net/edfbrowser/bdfplus%20format%20description.html) is an EDF+ like extension of BDF.
 
 This packages supports all these variants.
 
@@ -259,7 +258,7 @@ The annotations attribute contains one or more annotations associated with the o
 This package has used code from
 
 - edf.R version 0.3 (27-11-2013),    
-copied from, http://www.feschet.fr/?p=11 (This link seems to be removed)
+copied from, http://www.feschet.fr/?p=11 (This link has been removed)
 
 - the work of Henelius Andreas as of July 2015,    
 https://github.com/bwrc/edf
@@ -280,7 +279,7 @@ see 'Which file format does BioSemi use' at
 http://www.biosemi.com/faq/file_format.htm
 
 5. Specification of BDF+
-http://www.teuniz.net/edfbrowser/bdfplus format description.html
+http://www.teuniz.net/edfbrowser/bdfplus%20format%20description.html
 
 Other useful EDF related sources can be found at:   
 http://www.edfplus.info/downloads/
