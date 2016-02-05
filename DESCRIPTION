@@ -5,6 +5,7 @@ Version: 1.0.0
 Date: 2016-02-04
 Authors@R: person ("Jan", "Vis", email = "jan@visconsultancy.eu",
   role = c("aut", "cre"))
+Maintainer: Jan Vis <jan@visconsultancy.eu>
 Description: Reads European Data Format files EDF and EDF+, see http://www.edfplus.info,
     BioSemi Data Format files BDF, see http://www.biosemi.com/faq/file_format.htm,
     and BDF+ files, see http://www.teuniz.net/edfbrowser/bdfplus%20format%20description.html.
