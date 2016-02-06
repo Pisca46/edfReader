@@ -11,7 +11,7 @@ library(devtools)
    
 Second, install the edfReader package:
 ```{r, eval=FALSE}
-install_github("pisca46/edfReader")
+install_github("pisca46/edfReader", build_vignettes = TRUE)
 ````
   
 ### License
