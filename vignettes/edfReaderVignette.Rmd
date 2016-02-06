@@ -258,7 +258,7 @@ The annotations attribute contains one or more annotations associated with the o
 This package has used code from
 
 - edf.R version 0.3 (27-11-2013),    
-copied from, http://www.feschet.fr/?p=11 (This link has been removed)
+copied from Fabian Feschet’s web link feschet.fr/?p=11 (has been removed)”
 
 - the work of Henelius Andreas as of July 2015,    
 https://github.com/bwrc/edf
