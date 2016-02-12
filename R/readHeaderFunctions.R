@@ -18,7 +18,8 @@
 #
 # Acknowledgement :
 #               This package has used code from:
-#               - edf.R version 0.3 (27-11-2013), http://feschet.fr/?p=11
+#               - edf.R version 0.3 (27-11-2013) from Fabien Feschet,
+#                 http://data-auvergne.fr/cloud/index.php/s/WYmFEDZylFWJzNs
 #               - the work of Henelius Andreas as of July 2015, https://github.com/bwrc/edf
 #
 # History    :
