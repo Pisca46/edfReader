@@ -37,7 +37,7 @@ The objects returned by these functions are described in the package vignette.
 
    This package has used code from:
    \itemize{
-     \item edf.R version 0.3 (27-11-2013), http://feschet.fr/?p=11
+     \item edf.R version 0.3 (27-11-2013) from Fabien Feschet, http://data-auvergne.fr/cloud/index.php/s/WYmFEDZylFWJzNs
      \item the work of Henelius Andreas as of July 2015, https://github.com/bwrc/edf
    }
 }
