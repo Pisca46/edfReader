@@ -257,7 +257,11 @@ The annotations attribute contains one or more annotations associated with the o
 # Acknowledgement
 This package has used code from
 
+<<<<<<< HEAD
 - edf.R version 0.3 (27-11-2013) from Fabien Feschet,    
+=======
+- edf.R version 0.3 (27-11-2013) from from Fabien Feschet,    
+>>>>>>> 8b472cdb80828e9abb4cb7acae280debfd797237
 http://data-auvergne.fr/cloud/index.php/s/WYmFEDZylFWJzNs
 
 - the work of Henelius Andreas as of July 2015,    
