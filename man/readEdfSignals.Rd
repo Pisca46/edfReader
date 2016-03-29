@@ -7,7 +7,7 @@
 \usage{
 readEdfSignals(hdr, signals = "All", from = 0, till = Inf,
   physical = TRUE, fragments = FALSE, recordStarts = FALSE,
-  simplify = TRUE)
+  mergeASignals = TRUE, simplify = TRUE)
 }
 \arguments{
 \item{hdr}{An ebdfHeader object read with the readEdfHeader() function.}
@@ -16,22 +16,26 @@ readEdfSignals(hdr, signals = "All", from = 0, till = Inf,
 'All' (default), to include all signals;
 'Ordinary', to include all ordinary signals;
 'Annotations', to include all annotation signals;
-signal labels; and signal numbers (numeric or as character).}
+signal labels and/or signal names
+signal numbers (numeric or as character).}
 
 \item{from}{numeric, the time in seconds from which the signals shall be read.}
 
 \item{till}{numeric, the time in seconds till which the signals shall be read.
-The value may exeed the total duration of the recoding.}
+The value may exceed the total duration of the recoding.}
 
 \item{physical}{logical, if TRUE (the default) digital samples values are mapped to their physical values,
 If not, the digital values are returned.}
 
 \item{fragments}{logical, if TRUE discontinuously recorded signals are stored as a list of continuous
-fragments. If FALSE, a signal is stored as one numeric vector with NA values filling the gaps.}
+fragments. If FALSE (the default), a signal is stored as one numeric vector with NA values filling the gaps.}
 
 \item{recordStarts}{logical, if TRUE the empty annotations with the data record start time will be
 included in the list of annotations.
 If FALSE (the default), they will be omitted.}
+
+\item{mergeASignals}{logical, if TRUE all annotations will wil merged into one data frame. If FALSE
+there will be one data frame per annotation signal.}
 
 \item{simplify}{logical, if TRUE and if there is only one signal read, the signal itsels is returned
 (in stead of a list with that signal as the only one object).
@@ -83,7 +87,7 @@ someCSignalsPeriod$`sine 8.5 Hz`             # print the `sine 8.5 Hz` signal
 summary(someCSignalsPeriod$`sine 8.5 Hz`)    # print a `sine 8.5 Hz` signal summary
 str(CSignals$`sine 8.5 Hz`)                  # look to the details
 # a discontinuous recording
-DFile <- paste (libDir, '/bdfPlusD.bdf', sep='')
+DFile <- paste (libDir, '/edfPlusD.edf', sep='')
 DHdr  <- readEdfHeader (DFile)
 DSignals <- readEdfSignals (DHdr, fragments=TRUE)    # to read all signals
 DSignals$`sine 8.5 Hz`                       # print fragmented signal

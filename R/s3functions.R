@@ -2,7 +2,7 @@
 #
 # Purpose   :   print and summarize functions for ebdf objects
 #
-# Copyright :   (C) 2015, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -19,34 +19,26 @@
 #
 # History    :
 #   Oct15 - Created
-#   Jan16 - Revised, version 1.0.0
+#   Mar16 - Revised, version 1.1.0
 # ------------------------------------------------------------------------------
 #                           s3 header functions
 #                        objects: ebdfHeader & ebdfSHeader
 # ------------------------------------------------------------------------------
-# Print summary of an EDF/BDF file header
-#
-# Printing a brief summary of the data contained in an EDF/BDF file header.\cr
-# For a less brief summary use summary(), for details use str().
-#
-# @param x An \code{\link{ebdfHeader}} object
-# @param ... Ignored
 #' @export
 print.ebdfHeader <- function (x, ...) {                                         # excluding edf/bdf encoding data
     cat (' Patient               :', x$patient, '\n')
     cat (' RecordingId           :', x$recordingId, '\n')
-    cat (' StartTime             :', format (x$startTime), '\n')
+    cat (' StartTime             :', posixltToChar(x$startTime), '\n')
     cat (' Continuous recording  :', x$isContinuous, '\n')
-    cat (' Signal labels         :', x$sHeaders$label, '\n')
+    labels <- x$sHeaders$label
+    cat (' Signal labels         :', paste(labels, collapse = ', '), '\n')
+    names <- row.names(x$sHeaders)
+    if (sum(labels != names)) {                                                 # different names, i.e. non-unique labels
+        cat (' R signal names        :', paste(names, collapse = ', '), '\n')
+        cat (' Note                  : duplicate label names')
+    }
 }
 
-# Summarizing an EDF/BDF file header
-#
-# Summary method for the data contained in an EDF/BDF file header.\cr
-# For even more brief summary use print(), for details used str().
-#
-# @param object An \code{\link{ebdfHeader}} object
-# @param ... Ignored
 #' @export
 summary.ebdfHeader <- function (object, ...) {
     suffix <- ifelse (object$isPlus, '+', '')
@@ -56,42 +48,46 @@ summary.ebdfHeader <- function (object, ...) {
     cat (' Version               :', object$version, '\n')
     cat (' Patient               :', object$patient, '\n')
     cat (' RecordingId           :', object$recordingId, '\n')
-    cat (' StartTime             :', format (object$startTime), '\n')
+    cat (' StartTime             :', posixltToChar (object$startTime), '\n')
     cat (' Continuous recording  :', object$isContinuous, '\n')
     if (!is.na(object$recordedPeriod)) {
-        secPlus <- secPlusHHMMSS (object$recordedPeriod)
-        cat (' Recording period      :', secPlus, '\n')
+        cat (' Recorded period       :', secPlusHHMMSS (object$recordedPeriod), '\n')
     }
     aCh <- sum (object$sHeaders$isAnnotation)
     cat (' Ordinary signals      :', object$nSignals - aCh, '\n')
     cat (' Annotation signals    :', aCh, '\n')
-    cat (' Signal labels         :', object$sHeaders$label, '\n')
+    labels <- object$sHeaders$label
+    cat (' Signal labels         :', paste(labels, collapse = ', '), '\n')
+    names <- row.names(object$sHeaders)
+    if (sum(labels != names)) {                                                 # different names, i.e. non-unique labels
+        cat (' R signal names        :', paste(names, collapse = ', '), '\n')
+        cat (' Note                  : duplicate label names')
+    }
 }
 
-# Prints the labels of the signals in an EDF/BDF file
-#
-# Printing the labels of all signals in an EDF/BDF file.\cr
-# For a less brief summary use summary(), for details use str().
-#
-# @param x An \code{\link{ebdfSHeader}} object
-# @param ... Ignored
 #' @export
 print.ebdfSHeaders <- function (x, ...) {
-    cat (' Signal labels         :', x$label, '\n')
+    labels <- x$label
+    cat (' Signal labels         :', paste(labels, collapse = ', '), '\n')
+    names <- row.names(x)
+    if (sum(labels != names)) {                                                 # different names, i.e. non-unique labels
+        cat (' R signal names        :', paste(names, collapse = ', '), '\n')
+        cat (' Note                  : duplicate label names')
+    }
 }
 
-# Summary of the singal data in the EDF/BDF file header
-#
-# Summary method for the signal data contained in an EDF/BDF file header.\cr
-# For less details use print(), for all details used str().
-#
-# @param object An \code{\link{ebdfSHeader}} object
-# @param ... Ignored
 #' @export
 summary.ebdfSHeaders <- function (object, ...) {
-    sns <- seq (to=nrow(object))
-    sdf <- data.frame (signal=sns, label=object$label, transducer=object$transducerType,
-                       sampleRate=object$sRate, preFilter= object$preFilter, stringsAsFactors=FALSE)
+    sns     <- seq (to=nrow(object))
+    labels  <- object$label
+    names   <- row.names(object)
+    if (!sum(labels == names)) {
+        sdf <- data.frame (signal=sns, label=labels, transducer=object$transducerType,
+                           sampleRate=object$sRate, preFilter= object$preFilter, stringsAsFactors=FALSE)
+    } else {
+        sdf <- data.frame (signal=sns, label=labels, name=names, transducer=object$transducerType,
+                           sampleRate=object$sRate, preFilter= object$preFilter, stringsAsFactors=FALSE)
+    }
     annons <- which(sdf$label=='EDF Annotations' | sdf$label=='BDF Annotations')
     if (length(annons)) {
         sdf$transducer[annons]  <- ' '
@@ -101,191 +97,154 @@ summary.ebdfSHeaders <- function (object, ...) {
     sdf
 }
 # ------------------------------------------------------------------------------
-#                        s3 multiple signal functions
+#                            s3 lists of signals
 #                            object: ebdfSignals
 # ------------------------------------------------------------------------------
-# Print summary of the signals recorded in an EDF/BDF file
-#
-# Printing a brief summary of the signals recorded in an EDF/BDF file.\cr
-# It is the same as summary(), for details use str().
-#
-# @param x An \code{\link{ebdfSignals}} object
-# @param ... Ignored
-#' @export
-print.ebdfSignals <- function (x, ...) {
-        printSummarySignals (x, print=TRUE)
-}
-
-# Summarizing the signal recorded in an EDF/BDF file
-#
-# Summary method for the signals recorded in an EDF/BDF file.\cr
-# It is the same print(), for all details used str().
-#
-# @param object An \code{\link{ebdfSignals}} object
-# @param ... Ignored
 #' @export
 summary.ebdfSignals <- function (object, ...) {
-        printSummarySignals (object, print=FALSE)
+    printSummarySignals (object, isSumm=TRUE)
 }
 
-printSummarySignals <- function (signals, print=TRUE) {
+printSummarySignals <- function (signals, isSumm) {
     asn  <- logical( length = length(signals))
     csn  <- asn
-    dsn  <- asn
+    fsn  <- asn                     # +D read with frogmented=TRUE
     for (sn in 1:length(signals)) {
         if (class (signals[[sn]]) == 'ebdfASignal') asn[sn] <- TRUE
         if (class (signals[[sn]]) == 'ebdfCSignal') csn[sn] <- TRUE
-        if (class (signals[[sn]]) == 'ebdfFSignal') dsn[sn] <- TRUE
+        if (class (signals[[sn]]) == 'ebdfFSignal') fsn[sn] <- TRUE
     }
-    osn <- csn | dsn
-    printSummaryCommonSignalsData      (signals, osn=osn, print=print)
-    if (sum(asn)) printSummaryASignals (signals, asn=asn, print=print)
-    if (sum(csn)) printSummaryCSignals (signals, csn=csn, print=print)
-    # if (sum(asn)) printSummaryDSignals (signals, dsn=dsn, print=print)
+
+    printSummaryCommonSignalsData      (signals, isSumm=isSumm)
+    if (sum(asn)) printSummaryASignals (signals, asn=asn, isSumm=isSumm)
+    if (sum(csn)) printSummaryCSignals (signals, csn=csn, isSumm=isSumm)
+    if (sum(fsn)) printSummaryFSignals (signals, fsn=fsn, isSumm=isSumm)
 }
 
-printSummaryCommonSignalsData <- function (signals, osn, print=TRUE) {
-    cat ("Continuous recording ", signals[[1]]$isContinuous,   '\n')
-    if (!signals[[1]]$isContinuous) {
-        cat ("Total recording time ", signals[[1]]$totalPeriod,    '\n')
-    }
-    cat ("Recorded period      ", signals[[1]]$recordedPeriod, '\n')
-    till <- ifelse (signals[[1]]$till < signals[[1]]$totalPeriod, signals[[1]]$till, Inf)
-    cat ("Recording segment    ", getSelectedSegmentText (signals[[1]]$from, till), '\n')
-    if (sum(osn)) {
-        cat ("bits per sample      ", signals[[1]]$sampleBits, '\n')
+printSummaryCommonSignalsData <- function (signals, isSumm) {
+    # osn1, asn1, fns1 : the first in signals if present else 0
+    if (isSumm) {
+        cat (' StartTime               :', posixltToChar(signals[[1]]$startTime), '\n')
     }
 }
 
-printSummaryASignals <- function (signals, asn, print) {
+printSummaryASignals <- function (signals, asn,  isSumm) {
     nr  <- sum(asn)
     cat (ifelse(nr==1,'Annotation signal:', 'Annotation signals:' ), '\n')
-    sns  <- integer (length=nr)
-    rss  <- integer (length=nr)
-    os   <- integer (length=nr)
+    sns     <- character (length=nr)
+    from    <- character (length=nr)
+    till    <- character (length=nr)
+    n       <- integer   (length=nr)
     r <- 1
     for (sn in 1:length(signals)) if (asn[sn]) {
-        sns[r] <- signals[[sn]]$signalNumber
-        rss[r] <- sum  ( signals[[sn]]$annotations$isRecordStart)
-        os[r]  <- sum  (!signals[[sn]]$annotations$isRecordStart)
-        # oA [r] <- nrow (signals[[sn]]$annotations) - rsA[r]
-        r <- r +1
+        sns[r]      <- paste (signals[[sn]]$signalNumber, collapse=',')
+        fromTillN   <- getAnnotsSumASignal (signals[[sn]])
+        from[r]     <- secPlusHHMMSS (fromTillN [1])
+        till[r]     <- secPlusHHMMSS (fromTillN [2])
+        n[r]        <- fromTillN [3]
+        r           <- r +1
     }
-    pdf <- data.frame (signal=sns, recordStartAnnotations=rss,otherAnnotations=os ,stringsAsFactors = FALSE)
+    pdf <- data.frame (signal=sns, annotations=n , from=from, till=till, stringsAsFactors = FALSE)
     print.data.frame  (pdf)
 }
 
-printSummaryCSignals <- function (signals, csn, print) {
-    nr  <- sum(csn)
-    cat (ifelse(nr==1,'Ordinary signal:', 'Ordinary signals:' ), '\n')
+printSummaryCSignals <- function (signals, csn, isSumm) {
+    cat (ifelse(sum(csn)==1,'Ordinary signal:', 'Ordinary signals:' ), '\n')
+    printSummaryOSignalCommon (signals[[which.max(csn)]], isSumm, commonsOnly=TRUE)
+    printSummaryOSignalsList (signals, csn)
+}
+
+printSummaryFSignals <- function (signals, fsn, isSumm) {
+    cat (ifelse(sum(fsn)==1,'Ordinary signal:', 'Ordinary signals:' ), '\n')
+    oSignal <-signals[[which.max(fsn)]]
+    printSummaryOSignalCommon (oSignal, isSumm, commonsOnly=TRUE)
+    printSummaryOSignalsList (signals, fsn)
+}
+
+printSummaryOSignalsList <- function (signals, osn) {
+    nr      <- sum(osn)
+    oLabels <- sapply (signals, function (x){x$label})[osn]
+    oNames  <- names(signals)[osn]
+    dubs    <- sum (oLabels != oNames)
 
     sns  <- integer   (length=nr)
-    lbs  <- integer   (length=nr)
     tds  <- character (length=nr)
     srs  <- numeric   (length=nr)
     sms  <- integer   (length=nr)
     pfs  <- character (length=nr)
+    fRS  <- integer   (length=nr)
+    fRT  <- numeric   (length=nr)
     r <- 1
-    for (sn in 1:length(signals)) if (csn[sn]) {
+    for (sn in 1:length(signals)) if (osn[sn]) {
         sns[r] <- signals[[sn]]$signalNumber
-        lbs[r] <- signals[[sn]]$label
         tds[r] <- signals[[sn]]$transducer
         srs[r] <- signals[[sn]]$sRate
         sms[r] <- length(signals[[sn]]$signal)
         pfs[r] <- signals[[sn]]$preFilter
         r <- r +1
     }
-    psdf <- data.frame (signal=sns, label=lbs, transducer=tds, sampleRate=srs, samples=sms, preFilter=pfs,stringsAsFactors = FALSE)
+    if (!dubs) {
+        psdf <- data.frame (signal=sns, label=oLabels,
+                            transducer=tds, sampleRate=srs, samples=sms,
+                            preFilter=pfs,stringsAsFactors = FALSE)
+    } else {
+        psdf <- data.frame (signal=sns, label=oLabels, name=oNames,
+                            transducer=tds, sampleRate=srs, samples=sms,
+                            preFilter=pfs,stringsAsFactors = FALSE)
+    }
     print.data.frame  (psdf)
 }
+
 # ------------------------------------------------------------------------------
-#                        s3 single signal functions
-#            objects: ebdfASignal, ebdfCSignal, & ebdfFSignal
+#                           s3 signal functions
+#            objects: ebdfASignal, ebdfCSignal, and ebdfFSignal
 # ------------------------------------------------------------------------------
-# Print summary of an annotation signal
-#
-# Printing a brief summary of an annotation signal recorded in an EDF+/BDF+ file.\cr
-# For a less brief summary use summary(), for details use str().
-#
-# @param x An \code{\link{ebdfASignal}} object
-# @param ... Ignored
 #' @export
 print.ebdfASignal <- function (x, ...) {
-    rsn <- sum (x$annotations$isRecordStart)
-    on  <- nrow (x$annotations) - rsn
-    cat (" Signal number            ", x$signalNumber, '\n')
-    cat (" Signal label             ", x$label, '\n')
-    if (!x$isContinuous) {
-        cat (" Total recording time     ", secPlusHHMMSS(x$totalPeriod), '\n')
-    }
-    cat (" Recorded period          ", secPlusHHMMSS(x$recordedPeriod), '\n')
-    till <- ifelse (x$till < x$totalPeriod, x$till, Inf)
-    cat (" Recording segment        ", getSelectedSegmentText (x$from, till), '\n')
-    cat (" Record start annotations ", rsn, '\n')
-    cat (" Other annotations        ", on,  '\n')
+    printSummaryASignal (aSignal=x, isSumm=TRUE)
 }
 
-# Summarizing an annotation signal
-#
-# Summary method for an annotation signal recorded in an EDF+/BDF+ file.\cr
-# For less details use print(), for all details used str().
-#
-# @param object An \code{\link{ebdfASignal}} object
-# @param ... Ignored
 #' @export
 summary.ebdfASignal <- function (object, ...) {
-    rsn <- sum (object$annotations$isRecordStart)
-    on  <- nrow (object$annotations) - rsn
-    cat (" Signal number            ", object$signalNumber, '\n')
-    cat (" Signal label             ", object$label, '\n')
-    if (class (object) == 'ebdfFSignal') {
-        cat (" Total recording time  ", secPlusHHMMSS(object$totalPeriod), '\n')
-    }
-    cat (" Recorded period          ", secPlusHHMMSS(object$recordedPeriod), '\n')
-    till <- ifelse (object$till < object$totalPeriod, object$till, Inf)
-    cat (" Recording segment        ", getSelectedSegmentText (object$from, till), '\n')
-    cat (" Record start annotations ", rsn, '\n')
-    cat (" Other annotations        ", on,  '\n')
+    printSummaryASignal (aSignal=object, isSumm=TRUE)
 }
 
-# Print summary of an ordinary signal continuously recorded
-#
-# Printing a brief summary of an ordinary signal continuously recorded in an EDF/BDF file.\cr
-# For a less brief summary use summary(), for details use str().
-#
-# @param x An \code{\link{ebdfCSignal}} object
-# @param ... Ignored
+printSummaryASignal <- function (aSignal, isSumm) {
+    cat (" Signal number           :", aSignal$signalNumber, '\n')
+    cat (" Label                   :", aSignal$label, '\n')
+    cat (' StartTime               :', posixltToChar(aSignal$startTime), '\n')
+
+
+    rss <- sum (aSignal$annotations$isRecordStart)
+    an  <- nrow (aSignal$annotations) - rss
+    cat (" Record start specs      :", rss, '\n')
+    cat (" Annotations             :", an,  '\n')
+
+    fromTillN   <- getAnnotsSumASignal (aSignal)
+    cat (" Time first annotation   :", secPlusHHMMSS (fromTillN [1]), '\n')
+    cat (" Time last annotation    :", secPlusHHMMSS (fromTillN [2]), '\n')
+}
+
 #' @export
 print.ebdfCSignal <- function (x, ...) {
-    printSummaryCommonOSignalInfo (oSignal=x)
+    printSummaryOSignalCommon (oSignal=x, isSumm=TRUE, commonsOnly=FALSE)
 }
 
-# Summarizing an ordinary signal continuously recorded
-#
-# Summary method for an ordinary signal continuously recorded in an EDF/BDF file.\cr
-# For less details use print(), for all details used str().
-#
-# @param object An \code{\link{ebdfCSignal}} object
-# @param ... Ignored
 #' @export
 summary.ebdfCSignal <- function (object, ...) {
-    printSummaryCommonOSignalInfo (oSignal=object)
-    cat (" Signal summary:\n")
+    printSummaryOSignalCommon (oSignal=object, isSumm=TRUE, commonsOnly=FALSE)
+    cat (" Signal summary          :\n")
     summary (object$signal)
 }
 
-# Print summary of an ordinary signal stored in fragments
-
 #' @export
 print.ebdfFSignal <- function (x, ...) {
-    printSummaryCommonOSignalInfo (oSignal=x)
+    printSummaryOSignalCommon (oSignal=x, isSumm=TRUE, commonsOnly=FALSE)
 }
-
-# Summarizing an ordinary signal stored in fragments
 
 #' @export
 summary.ebdfFSignal <- function (object, ...) {
-    printSummaryCommonOSignalInfo (oSignal=object)
+    printSummaryOSignalCommon (oSignal=object, isSumm=TRUE, commonsOnly=FALSE)
     nFragments <- length (object$fragments)
     rows <- ifelse(nFragments>10, 5, nFragments)                                # 5 if > 10
     psdf <- getFragmentSummaries (object, rows)
@@ -295,25 +254,59 @@ summary.ebdfFSignal <- function (object, ...) {
     print (getFragmentsSummary(object))
 }
 
-printSummaryCommonOSignalInfo <- function (oSignal) {
-    cat (" Signal number         ", oSignal$signalNumber, '\n')
-    cat (" Label                 ", oSignal$label, '\n')
-    cat (" Continuous recording  ", oSignal$isContinuous, '\n')
-    if (!oSignal$isContinuous) {
-        cat (" Total recording time  ", secPlusHHMMSS(oSignal$totalPeriod), '\n')
+printSummaryOSignalCommon <- function (oSignal, isSumm, commonsOnly) {
+
+    wRecTillRRT <- oSignal$totalPeriod
+    readFromRRT <- max (0,           oSignal$from)
+    readTillRRT <- min (wRecTillRRT, oSignal$till)
+
+    if (!commonsOnly) {
+        cat (" Signal number           :", oSignal$signalNumber, '\n')
+        cat (" Label                   :", oSignal$label, '\n')
     }
-    cat (" Recorded period       ", secPlusHHMMSS(oSignal$recordedPeriod), '\n')
-    till <- ifelse (oSignal$till < oSignal$totalPeriod, oSignal$till, Inf)
-    cat (" Recording segment     ", getSelectedSegmentText (oSignal$from, till), '\n')
-    if (class (oSignal) == 'ebdfFSignal') {
-        cat (" Number of fragments   ", length (oSignal$fragments), '\n')
-    } else {
-        cat (" Number of samples     ", length (oSignal$signal), '\n')
+
+    if (!commonsOnly) {                                                         # exception
+        cat (' StartTime               :', posixltToChar(oSignal$startTime), '\n')
     }
-    cat (" Sample rate           ", oSignal$sRate, '\n')
-    cat (" Transducer            ", oSignal$transducerType, '\n')
-    cat (" Range                 ", oSignal$range, '\n')
-    cat (" Prefilter             ", oSignal$preFilter, '\n')
+
+    cat (" Continuous recording    :", oSignal$isContinuous,   '\n')
+    if (!isSumm) {
+        pReadTxt    <- getPeriodFromText (fromRRT = readFromRRT, tillRRT = readTillRRT,
+                                          wRectillRRT = wRecTillRRT )
+        cat (" Period read             :", pReadTxt, '\n')
+    } else {                                                                    # a summary
+        if (!oSignal$isContinuous) {
+            cat (" Total period            :", secPlusHHMMSS (wRecTillRRT), '\n' )
+            pReadLabel <- " Read from total period  :"
+        } else {
+            pReadLabel <- " Period read             :"
+        }
+        cat (' Recorded period         :', secPlusHHMMSS (oSignal$recordedPeriod), '\n')
+        pReadTxt    <- getPeriodFromText (fromRRT = readFromRRT, tillRRT = readTillRRT)
+        cat (pReadLabel, pReadTxt, '\n')
+
+        if (!commonsOnly) {
+            cat (" Transducer              :", oSignal$transducerType, '\n')
+            cat (" Range                   :", oSignal$range, '\n')
+            cat (" Prefilter               :", oSignal$preFilter, '\n')
+        }
+
+        cat (" Bits per sample         :", oSignal$sampleBits, '\n')
+        if (!commonsOnly) {
+            cat (" Sample rate             :", oSignal$sRate, '\n')
+        }
+
+        if (class (oSignal) == 'ebdfFSignal') {
+            if (commonsOnly) {
+                fragmentsLabel <- " Fragments per signal    :"
+            } else {
+                fragmentsLabel <- " Number of fragments     :"
+            }
+            cat (fragmentsLabel, length (oSignal$fragments), '\n')
+        } else {
+            cat (" Number of samples       :", length (oSignal$signal), '\n')
+        }
+    }
 }
 
 getFragmentsSummary <- function (object) {
@@ -362,35 +355,48 @@ getFragmentSummaries <- function (object, rows) {
 # ------------------------------------------------------------------------------
 #                        common functions
 # ------------------------------------------------------------------------------
-getSelectedSegmentText <- function (from, till, startS=0) {
-    if (from == 0 & till == Inf) {
-        txt <- 'whole recording'
-    } else if (from == 0) {
-        txt <- paste ('from start till ', secPlusHHMMSS(till), sep='')
-    } else {
-        fs <- ""
-        if (startS) fs <- paste (' (sample ', startS, ')', sep = '')
-        if (till == Inf) {
-            txt <- paste ('from ', secPlusHHMMSS(from), fs, ' till the end', sep='')
-        } else {
-            txt <- paste ('from ', secPlusHHMMSS(from), fs, ' till ', secPlusHHMMSS(till), sep='')
+
+# period read :  xxxx sec from yyy = recorded period / from start / till end of recording
+getPeriodFromText <- function (fromRRT, fromRS=NULL, tillRRT, wRectillRRT=NULL) {
+
+    periodTxt <- secPlusHHMMSS (tillRRT - fromRRT)
+    if (fromRRT) {
+        periodTxt <- paste (periodTxt, ' starting at ', secPlusHHMMSS (fromRRT), sep='')
+    }
+    if (!is.null(fromRS)) {
+        periodTxt <- paste (periodTxt, ' at  sample ', fromRS, sep='')
+    }
+
+    if ( !is.null (wRectillRRT)) {                                              # compose additional text
+        isFromStart <- fromRRT == 0
+        isTillEnd   <- wRectillRRT <= tillRRT
+        if (isFromStart & isTillEnd) {                                          # whole recoding
+            periodTxt <- paste (periodTxt, ' = whole recording', sep='')
+        } else if (isFromStart & !isTillEnd ) {                                 # from start till
+            periodTxt <- paste (periodTxt, ' =  from start', sep='')
+        } else if (!isFromStart & isTillEnd ) {                                 # from tlll end
+            periodTxt <- paste (periodTxt, ' till the end', sep='')
         }
     }
-    txt
+    periodTxt
+}
+
+getAnnotsSumASignal <- function (aSignal) {
+    annots  <- aSignal$annotations
+    onsets  <- annots [!annots$isRecordStart, 'onset']
+    n       <- length (onsets)
+    from    <- onsets [1]
+    till    <- onsets [n]
+    c (from, till, n)
 }
 
 secPlusHHMMSS <- function (sec) {
-    decimals <- round(sec) != sec
-    hhmmss <- secToHHMMSS (sec)
-    # remove trailing '0's and '.'
-    csec <- as.character (sec)
-    if (decimals) {
-        n <- nchar(csec)
-        while (substr(csec, n, n) == '0') n <- n-1
-        if    (substr(csec, n, n) == '.') n <- n-1
-        sec <- substr(csec, 1, n)
+    note <- ''
+    if (sec > 60) {
+        hhmmss <- secToHHMMSS (sec)
+        note  <- paste (' (= ', hhmmss, ')', sep='')
     }
-    paste (csec, ' sec (= ', hhmmss, ')', sep='')
+    paste (sec, ' sec' ,note, sep='')
 }
 
 secToHHMMSS <- function (sec) {
@@ -407,4 +413,16 @@ secToHHMMSS <- function (sec) {
         }
     }
     hhmmss
+}
+
+posixltToChar <- function (t) {
+    dt <- format (t, format="%Y-%m-%d %H:%M:%OS9",  usetz = FALSE)
+    n <- nchar(dt)
+    # remove trailing '0's and '.'
+    if (n > 19) {
+        while (substr(dt, n, n) == '0') n <- n-1
+        if    (substr(dt, n, n) == '.') n <- n-1
+        dt <- substr(dt, 1, n)
+    }
+    dt
 }

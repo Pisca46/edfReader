@@ -1,1 +1,0 @@
-Onset,Duration,Annotation

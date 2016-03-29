@@ -2,7 +2,7 @@
 #
 # Purpose   :   Reading .edf(+) & .bdf file headers
 #
-# Copyright :   (C) 2015, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -25,7 +25,8 @@
 # History    :
 #   Oct15 - Created
 #   Feb16 - Version 1.0.0
-#
+#   Mar16 - Version 1.1.0 support for non-unique signals labels
+#                         & sub second start data from data record
 # ------------------------------------------------------------------------------
 #                                read EDF header
 # ------------------------------------------------------------------------------
@@ -97,7 +98,13 @@ readEdfHeader <- function (fileName) {
 
     hdr$patient     <- gsub ("[[:space:]]*$", "", readChar(inFile, 80, TRUE))   # local patient identification
     hdr$recordingId <- gsub ("[[:space:]]*$", "", readChar(inFile, 80, TRUE))   # local recording identification
-    hdr$startTime   <- strptime(readChar(inFile, 16, TRUE), format="%d.%m.%y %H.%M.%S") # start date and time of recording
+    dateTimeSring   <- readChar(inFile, 16, TRUE)
+    if (substr(dateTimeSring, 11, 11) == ':') {
+        substr(dateTimeSring, 11, 11) <- '.'
+        substr(dateTimeSring, 14, 14) <- '.'
+    }
+    hdr$startTime   <- strptime(dateTimeSring, format="%d.%m.%y %H.%M.%S")      # start date and time of recording
+    # proposed?:       strptime(readChar(inFile, 16, TRUE), format="%d.%m.%y %H:%M:%S") # start date and time of recording
     hdr$headerLength<- as.integer(readChar(inFile, 8, TRUE))                    # number of bytes in header record
     hdr$reserved    <- gsub ("[[:space:]]*$", "", readChar(inFile, 44, TRUE))   # reserved
     hdr$nRecords    <- as.integer(readChar(inFile, 8, TRUE))                    # number of data records
@@ -126,6 +133,7 @@ readEdfHeader <- function (fileName) {
     for (i in 1:ns) samplesPerRecord[i] <- as.integer (readChar (inFile, nchars=8, useBytes=TRUE))
     reserved <- character (ns)
     for (i in 1:ns) reserved[i]        <- gsub ("[[:space:]]*$", "", readChar(inFile, nchars=32, useBytes=TRUE))
+
     close(inFile)
 
     # derived attributes
@@ -165,9 +173,51 @@ readEdfHeader <- function (fileName) {
                               preFilter=preFilter, samplesPerRecord=samplesPerRecord,
                               reserved=reserved, gain=gain, offset=offset, sRate=sRate,
                               isAnnotation=isAnnotation, sLength=sLength, stringsAsFactors=FALSE)
-    row.names (hdr$sHeaders) <- label
+    signalNames <- label
+    for (sn in 1:length(signalNames)) {
+        if (signalNames[sn]=="") signalNames[sn] <- 'NA'                        # avoid empty names
+    }
+    for (sn in 1:length(signalNames)) {
+        equals <- signalNames == signalNames[sn]
+        if (sum(equals) > 1) {                                                  # distinguish duplicates
+            suffix <- 1
+            for (en in which(equals)) {
+                # NOTE: This is not bullet proof "a-1, a, a" will result in "a-1, a-1, a-2".
+                newName <- paste(signalNames[en], '-', suffix, sep='')
+                while (sum(signalNames == newName)) {
+                    suffix <- suffix +1
+                    newName <- paste(signalNames[en], '-', suffix, sep='')
+                }
+                signalNames[en] <- paste(signalNames[en], '-', suffix, sep='')
+                suffix <- suffix +1
+            }
+        }
+    }
+
+    #  if + file get secondfraction start form first data record
+    hdr$startSecondFraction <- 0
+    if (hdr$isPlus) {
+        hdr$startSecondFraction <- getStartSecondFraction (hdr)
+        hdr$startTime <- hdr$startTime + hdr$startSecondFraction
+    }
+
+    row.names (hdr$sHeaders) <- signalNames
     class (hdr$sHeaders) <- c("ebdfSHeaders", "data.frame")
     # perform a consistency check
     if (hdr$isPlus & !sum(hdr$sHeaders$isAnnotation)) cat ('ERROR: The annotation signal is missing.')
     hdr
+}
+
+getStartSecondFraction <- function (hdr) {
+    StartSecondFraction <- 0
+    nAnnots <- sum (hdr$sHeaders$isAnnotation)
+    if (hdr$isPlus & nAnnots) {
+        annotations1 <- which.max (hdr$sHeaders$isAnnotation)
+        inFile <- file(hdr$fileName, "rb", encoding="UTF-16LE")
+        readBin (inFile, 'raw', n=hdr$headerLength , size=1)
+        samples             <- readNextDataRecord (hdr, inFile)
+        StartSecondFraction <- getAnnoRecordStartRT (samples[[annotations1]])   # the subsecond start time is in the first TAL in the first annotation signal
+        close(inFile)
+    }
+    StartSecondFraction
 }

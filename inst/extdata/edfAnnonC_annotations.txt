@@ -1,0 +1,9 @@
+Onset,Duration,Annotation
++0.749,,Test1
++0.8,,Test2
++0.840,,Test3
++0.872,0.005,Test4
++1.719,,Test5
++1.8,,Test6
++1.890,,Test7
++1.862,0.005,Test8

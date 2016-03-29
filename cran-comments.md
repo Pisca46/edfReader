@@ -1,5 +1,5 @@
 ### Test environments
-* local OS X El Capitan with R 3.2.3
+* local OS X El Capitan with R 3.2.4
 * ubuntu 12.04 (on travis-ci), R 3.1.2
 * local Windows 10 with R 3.2.3
 
@@ -7,19 +7,16 @@
 
 0 errors | 0 warnings | 0 note
 
-* This is a first release.
+* This is a second release.
 
 ### Reverse dependencies
 
-This is a first release, so there are no reverse dependencies.
+* This is a second release
 
-### Regarding the earlier remarks:
+### Regarding winBuilder notes:
 
-* BDF (3:27, 8:53) in DESCRIPTION
-  BDF is correct, it is an EDF variant
+* both BDF and EDF are correctly spelled in DESCRIPTION
 
-* invalid URL http://www.feschet.fr/?p=11 in the vignette
-  The link is obscured (but still there because I need to acknowledge my sources)
+* BioSemi is correctly spelled in the description
 
-Thanks for your reply.
 

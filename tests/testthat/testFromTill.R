@@ -1,7 +1,7 @@
 #
 # Purpose   :    Test the use of the 'from' anbd 'till' paraams in readEdfSignals()
 #
-# Copyright :   (C) 2015, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -15,9 +15,9 @@
 #               You should have received a copy of the GNU General Public License
 #               along with edf package for R.  If not, see <http://www.gnu.org/licenses/>.
 #
-#
 # History    :
 #   Jan16 - Created
+#   Mar16 - revised for verion 1.1.0; support added for +D file & first record onset != 0
 # ------------------------------------------------------------------------------
 #
 require (testthat)
@@ -25,60 +25,68 @@ require (edfReader)
 
 context ("Compare reading whole files with the export from EDFBrowser.")
 
-libDir <- system.file("extdata", package="edfReader")
-sampleDir <- paste (libDir, '/', sep='')
-sFns <- c('edfPlusC.edf', 'bdfPlusD.bdf')
+libDir <- paste (system.file("extdata", package="edfReader"), '/', sep='')
+
+sFns <- c('edfPlusC.edf',
+          'bdfPlusC.bdf',          # same signals as in edfPlusC.edf, but 24 bits
+          'edfPlusD.edf',          # extracted from 'edfPlusC.edf'
+          'edfAnnonC.edf')         # with 2 annotation signals, to test annotations only'
+
+# edfPlusC.edf and bdfPlusC.bdf are truncated versions of the test_generator_2 test file
+# the original files can be found at: http://www.teuniz.net/edf_bdf_testfiles
+# edfAnnonC.edf  is a truncated version of the test_generator8.edf test file
+# test_generator8.edf has been received from Teunis van Beelen via private communications
 
 sFFns <- character (length = length(sFns))
-for (i in 1:length(sFns)) sFFns[i] <- paste (sampleDir, sFns[i], sep='')
+for (i in 1:length(sFns)) sFFns[i] <- paste (libDir, sFns[i], sep='')
 
 sHdrs <- vector (mode='list', length = length(sFns))
 for (i in 1:length(sFns)) sHdrs[[i]] <- readEdfHeader(sFFns[i])
 
-checkASignalFile <- function (fileNo) {
+#                        test from-till for annotations
+# ------------------------------------------------------------------------------
+testASignalsFile <- function (fileNo) {
     hdr <- sHdrs[[fileNo]]
-    cat ("checkASignalFile, fileNo=", fileNo, '\n')
+    cat ("testASignalsFile", sFns[fileNo], '\n')
 
     isAnnotation <- hdr$sHeaders$isAnnotation
     nASignals   <- sum(isAnnotation)
     if (!nASignals) return
 
     # select an annotation signal
-    asn <- sample.int(nASignals, 1)
-    asn <- which(isAnnotation)[asn]
+    asn         <- sample.int(nASignals, 1)
+    asn         <- which(isAnnotation)[asn]
     wholeASign  <- readEdfSignals(hdr, signals=asn)
     totalPeriod <- wholeASign$totalPeriod
-    allAnnons   <- wholeASign$annotations
-    allOnsets   <- allAnnons$onset
+    allAnnots   <- wholeASign$annotations
+    allOnsets   <- allAnnots$onset
     nOnsets     <- length (allOnsets)
 
-    test_that ("Annotations: [from,from) nothing included", {
-        from <- allOnsets[1]
-        till <- allOnsets[1]          # will cause an error if equal to total recording time
-        # cat ("The first annotation precisely specified: nOnsets=", nOnsets, "from=", from, "till=", till, '\n')
+    test_that ("A1: [from,from) one annotation included", {
+        from    <- allOnsets[1]
+        till    <- allOnsets[1]          # will cause an error if equal to total recording time
+        aSignal <- readEdfSignals (hdr, signals=asn, from=from, till=till, fragment=FALSE)
+        aFSignal<- readEdfSignals (hdr, signals=asn, from=from, till=till, fragment=TRUE )
+        expect_equal (aSignal, aFSignal)
+        expect_equal (aSignal$from , from)
+        expect_equal (aSignal$till , till)
+        annotsInRange <- (from <= allOnsets) & (allOnsets <= till)
+        expect_equal (aSignal$annotations, allAnnots[annotsInRange, ])
+    })
+
+    test_that ("A2: the first one precisely specified", {
+        from    <- allOnsets[1]
+        till    <- allOnsets[1] + 0.0001   # will cause an error if equal to total recording time
         aSignal <- readEdfSignals (hdr, signals=asn, from=from, till=till, fragment=FALSE)
         aFSignal<- readEdfSignals (hdr, signals=asn, from=from, till=till, fragment=TRUE )
         expect_equal(aSignal, aFSignal)
         expect_equal (aSignal$from , from)
         expect_equal (aSignal$till , till)
-        annonsInRange <- (from <= allOnsets) & (allOnsets < till)
-        expect_equal (aSignal$annotations, allAnnons[annonsInRange, ])
+        annotsInRange <- (from <= allOnsets) & (allOnsets < till)
+        expect_equal (aSignal$annotations, allAnnots[annotsInRange, ])
     })
 
-    test_that ("Annotations: the first one precisely specified", {
-        from <- allOnsets[1]
-        till <- allOnsets[1] + 0.0001   # will cause an error if equal to total recording time
-        # cat ("The first annotation precisely specified: nOnsets=", nOnsets, "from=", from, "till=", till, '\n')
-        aSignal <- readEdfSignals (hdr, signals=asn, from=from, till=till, fragment=FALSE)
-        aFSignal<- readEdfSignals (hdr, signals=asn, from=from, till=till, fragment=TRUE )
-        expect_equal(aSignal, aFSignal)
-        expect_equal (aSignal$from , from)
-        expect_equal (aSignal$till , till)
-        annonsInRange <- (from <= allOnsets) & (allOnsets < till)
-        expect_equal (aSignal$annotations, allAnnons[annonsInRange, ])
-    })
-
-    test_that ("Annotations: an empty range precisely specified", {
+    test_that ("A3: an empty range precisely specified", {
         if (nOnsets == 1) {
             if (allOnsets[1]) {
                 from <- 0
@@ -96,30 +104,29 @@ checkASignalFile <- function (fileNo) {
             from <- o1 + delta
             till <- o2 - delta
         }
-        annonsInRange <- (from <= allOnsets) & (allOnsets < till)
-        # cat ("An empty range precisely specified: nOnsets=", nOnsets, "from=", from, "till=", till, '\n')
+        annotsInRange <- (from <= allOnsets) & (allOnsets < till)
         aSignal <- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=FALSE)
         aFSignal<- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=TRUE )
         expect_equal(aSignal, aFSignal)
         expect_equal (aSignal$from , from)
         expect_equal (aSignal$till , till)
-        expect_equal (sum (annonsInRange), 0)
+        expect_equal (sum (annotsInRange), 0)
         expect_equal (nrow (aSignal$annotations), 0)
-        if (sum (annonsInRange)) {
-            expect_equal (aSignal$annotations, allAnnons[annonsInRange, ])
+        if (sum (annotsInRange)) {
+            expect_equal (aSignal$annotations, allAnnots[annotsInRange, ])
         }
     })
-    test_that ("Annotations: A random range 1", {
+    test_that ("A4: A random range 1", {
         aRange  <- runif(1) * hdr$recordedPeriod
         from    <- runif(1) * (hdr$recordedPeriod - aRange)
         till    <- from + aRange
         aSignal <- readEdfSignals(hdr, signals=asn, from=from, till=till)
         expect_equal (aSignal$from , from)
         expect_equal (aSignal$till , till)
-        annonsInRange <- (from <= allOnsets) & (allOnsets <= till)
-        expect_equal (aSignal$annotations, allAnnons[annonsInRange, ])
+        annotsInRange <- (from <= allOnsets) & (allOnsets <= till)
+        expect_equal (aSignal$annotations, allAnnots[annotsInRange, ])
     })
-    test_that ("Annotations: A random range 2", {
+    test_that ("A5: A random range 2", {
         aRange  <- runif(1) * hdr$recordedPeriod
         from    <- runif(1) * (hdr$recordedPeriod - aRange)
         till    <- from + aRange
@@ -128,10 +135,10 @@ checkASignalFile <- function (fileNo) {
         expect_equal(aSignal, aFSignal)
         expect_equal (aSignal$from , from)
         expect_equal (aSignal$till , till)
-        annonsInRange <- (from <= allOnsets) & (allOnsets <= till)
-        expect_equal (aSignal$annotations, allAnnons[annonsInRange, ])
+        annotsInRange <- (from <= allOnsets) & (allOnsets <= till)
+        expect_equal (aSignal$annotations, allAnnots[annotsInRange, ])
     })
-    test_that ("Annotations: A random range 3", {
+    test_that ("A6: A random range 3", {
         aRange  <- runif(1) * hdr$recordedPeriod
         from    <- runif(1) * (hdr$recordedPeriod - aRange)
         till    <- from + aRange
@@ -140,14 +147,14 @@ checkASignalFile <- function (fileNo) {
         expect_equal(aSignal, aFSignal)
         expect_equal (aSignal$from , from)
         expect_equal (aSignal$till , till)
-        annonsInRange <- (from <= allOnsets) & (allOnsets <= till)
-        expect_equal (aSignal$annotations, allAnnons[annonsInRange, ])
+        annotsInRange <- (from <= allOnsets) & (allOnsets <= till)
+        expect_equal (aSignal$annotations, allAnnots[annotsInRange, ])
     })
 }
 
-checkOSignalsFile <- function (fileNo) {
-    hdr         <- sHdrs[[fileNo]]
-    cat ("checkOSignalsFile, fileNo=", fileNo,"hdr$isContinuous=", hdr$isContinuous ,'\n')
+testOSignalsFile <- function (fileNo) {
+    hdr <- sHdrs[[fileNo]]
+    cat (sFns[fileNo], ": testOSignalsFile: isContinuous=", hdr$isContinuous ,'\n')
 
     isOSignal   <- !hdr$sHeaders$isAnnotation
     nOSignals   <- sum (isOSignal)
@@ -156,17 +163,18 @@ checkOSignalsFile <- function (fileNo) {
     # select an ordinary signal
     osn <- sample.int(nOSignals, 1)
     osn <- which(isOSignal)[osn]
-    # cat ("checkOSignalsFile, osn=", osn, '\n')
-    signalOsn <-readEdfSignals(hdr, signals=osn)
-    wholeS <- signalOsn$signal
-
+    signalOsn   <-readEdfSignals (hdr, signals=osn, fragment=FALSE)
+    wholeS      <- signalOsn$signal
     nRecords    <- hdr$nRecords
-    recordD    <- hdr$recordDuration
+    recordD     <- hdr$recordDuration
     sPerRec     <- hdr$sHeaders$samplesPerRecord[osn]
     sLength     <- length(signalOsn$signal)
     sRate       <- hdr$sHeaders$sRate[osn]
     totalPeriod <- signalOsn$totalPeriod
     sInterval   <- 1/sRate
+
+    sStartRT    <- signalOsn$start
+    sStartRS    <- signalOsn$fromSample
 
     #   The signal samples are counted from 1.
     #   However, as time and duraration are expressed as doubles, time starts at t = 0.
@@ -182,94 +190,94 @@ checkOSignalsFile <- function (fileNo) {
 
     # at the very beginning
     that    <- "B1: First sample [0:.5)"
-    from    <- 0
-    till    <- sInterval /2
-    fromS   <- 1
+    from    <- sStartRT
+    till    <- from + sInterval /2
+    fromS   <- sStartRS
     part    <- wholeS[1]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "B2: First sample [0:1)"
-    from    <- 0
-    till    <- sInterval
-    fromS   <- 1
+    from    <- sStartRT
+    till    <- from + sInterval
+    fromS   <- sStartRS
     part    <- wholeS[1]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
-    that    <- "B3: First 2 samples [0:1.000)"
-    from    <- 0
-    till    <- sInterval *1.0001
-    fromS   <- 1
+    that    <- "B3: First 2 samples [0:1.0001)"
+    from    <- sStartRT
+    till    <- from + sInterval *1.0001
+    fromS   <- sStartRS
     part    <- wholeS[1:2]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "B4: No first sample [0:0)"
-    from    <- 0
-    till    <- 0
-    fromS   <- 0
+    from    <- sStartRT
+    till    <- sStartRT
+    fromS   <- NA
     part    <- NULL
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     # at the first record boundary
     that    <- "F1: End of record 1: no last sample [end-.9999:end)"
-    from    <- recordD - sInterval*.9999
-    till    <- recordD
-    fromS   <- sPerRec + 1
+    from    <- sStartRT + recordD - sInterval*.9999
+    till    <- sStartRT + recordD
+    fromS   <- NA
     part    <- NULL
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "F2: End of record 1: last sample [end-1:end)"
-    from    <- recordD - sInterval
-    till    <- recordD
-    fromS   <- sPerRec
-    part    <- wholeS[fromS:fromS]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    from    <- sStartRT + recordD - sInterval
+    till    <- sStartRT + recordD
+    fromS   <- sStartRS + sPerRec - 1
+    part    <- wholeS[sPerRec:sPerRec]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
-    that    <- "F3: End of record 1: last sample + next [end:end+1.0001)"
-    from    <- recordD - sInterval*1.0001
-    till    <- recordD + sInterval*0.0001
-    fromS   <- sPerRec
-    part    <- wholeS[fromS:(fromS+1)]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    that    <- "F3: End of record 1: last sample + next [end-1.001:end+0.0001)"
+    from    <- sStartRT + recordD - sInterval*1.0001
+    till    <- sStartRT + recordD + sInterval*0.0001
+    fromS   <- sStartRS + sPerRec - 1
+    part    <- wholeS[sPerRec:(sPerRec+1)]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "F4: End of 1 record: 1-st sample rec 2 [end:end+1)"
-    from    <- recordD
-    till    <- recordD + sInterval
-    fromS   <- sPerRec + 1
-    part    <- wholeS[fromS:fromS]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    from    <- sStartRT + recordD
+    till    <- sStartRT + recordD + sInterval
+    fromS   <- sStartRS + sPerRec
+    part    <- wholeS[(sPerRec+1):(sPerRec+1)]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "F5: no last sample [end:end)"
-    from    <- recordD
-    till    <- recordD
-    fromS   <- sPerRec + 1
+    from    <- sStartRT + recordD
+    till    <- sStartRT + recordD
+    fromS   <- NA
     part    <- NULL
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
 
@@ -277,87 +285,92 @@ checkOSignalsFile <- function (fileNo) {
     that    <- "E1: End of recording: no last sample [end-.999:end)"
     from    <- totalPeriod - sInterval*0.9999
     till    <- Inf
-    fromS   <- sLength + 1
+    fromS   <- NA
     part    <- NULL
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "E2: End of recording: last sample [end-1:end)"
     from    <- totalPeriod - sInterval
     till    <- totalPeriod
-    fromS   <- sLength
-    part    <- wholeS[fromS:fromS]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    fromS   <- sStartRS + sLength - 1
+    part    <- wholeS[sLength:sLength]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "E3: End of recording: last 2 samples [end-1:end+100)"
     from    <- totalPeriod - sInterval*2
     till    <- totalPeriod + sInterval*100
-    fromS   <- sLength-1
-    part    <- wholeS[fromS:(fromS+1)]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    fromS   <- sStartRS + sLength - 2
+    part    <- wholeS[(sLength-1):sLength]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "E4: End of recording: last 36 samples [end-36:inf)"
-    from    <- totalPeriod - 36 * sInterval - 0.0001
+    from    <- totalPeriod - 36 * sInterval
     till    <- Inf
-    fromS   <- sLength-35
-    part    <- wholeS[fromS:(fromS+35)]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    fromS   <- sStartRS + sLength - 36
+    part    <- wholeS[(sLength-35):sLength]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     # some random ranges
     that    <- "R1: An 1 recordDuration cPart with random start"
     maxFrom <- recordD * (nRecords -1)
-    from <- runif(1)*maxFrom
-    till <- from + recordD
-    fromS <- ceiling (sRate * from) +1
-    part <- wholeS[fromS:(fromS+sPerRec-1)]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    from1   <- runif(1)*maxFrom
+    fromS1  <- ceiling (sRate * from1) +1
+    from    <- sStartRT + from1
+    till    <- from + recordD
+    fromS   <- sStartRS + fromS1 -1
+    part <- wholeS[fromS1:(fromS1+sPerRec-1)]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 
     that    <- "R2: An 3 recordDurations cPart with random start"
     maxFrom <- recordD * (nRecords - 3)
-    from    <- runif(1)*maxFrom
+    from1   <- runif(1)*maxFrom
+    fromS1  <- ceiling (sRate * from1) +1
+    from    <- sStartRT + from1
     till    <- from + 3 * recordD
-    fromS   <- ceiling (sRate * from) +1
-    part    <- wholeS[fromS:(fromS+sPerRec*3-1)]
-    checkCPart (that, hdr, osn, from, till, fromS, part)
+    fromS   <- sStartRS + fromS1 -1
+    part    <- wholeS[fromS1:(fromS1+sPerRec*3-1)]
+    testCPart (that, hdr, osn, from, till, fromS, part)
     if (!hdr$isContinuous) {
-        checkFPart (that, hdr, osn, from, till, fromS, part)
+        testFPart (that, hdr, osn, from, till, fromS, part)
     }
 }
 
-checkCPart <- function (that, hdr, osn, from, till, fromS, wPart) {
-    thatId <- substr(that, 1, 2)
-    that <- paste ("checkCPart: ", that, sep='')
-    cPart <- readEdfSignals(hdr, signals=osn, from=from, till=till)
+testCPart <- function (that, hdr, osn, from, till, fromS, wPart) {
+    that <- paste ("testCPart: ", that, sep='')
+    # cat (that, '\n')
+    cPart <- readEdfSignals(hdr, signals=osn, from=from, till=till, fragments = FALSE)
     test_that (that, {
         expect_equal (cPart$from , from)
         expect_equal (cPart$till , till)
         if (is.null(wPart)) {
             expect_equal (length(cPart$signal), 0)
             expect_equal (cPart$fromSample, as.numeric(NA))
+            expect_equal (fromS, NA)
         } else {
-            expect_equal (cPart$signal, wPart)
             expect_equal (cPart$fromSample, fromS)
+            expect_equal (cPart$signal, wPart)
         }
     })
 }
 
-checkFPart <- function (that, hdr, osn, from, till, fromS, wPart) {
-    thatId <- substr(that, 1, 2)
-    that <- paste ("checkFPart: ", that, sep='')
+testFPart <- function (that, hdr, osn, from, till, fromS, wPart) {
+    that <- paste ("testFPart: ", that, sep='')
+    # cat (that, '\n')
     fSig <- readEdfSignals(hdr, signals=osn, from=from, till=till, fragments=TRUE)
     test_that (that, {
         expect_equal (fSig$till, till)
@@ -386,10 +399,17 @@ checkFPart <- function (that, hdr, osn, from, till, fromS, wPart) {
     }
 }
 
-
 set.seed (20160101)
 
-checkASignalFile (1)
-checkASignalFile (2)
-checkOSignalsFile (1)
-checkOSignalsFile (2)
+testAll <- function () {
+    testASignalsFile (1)
+    testASignalsFile (2)
+    testASignalsFile (3)
+    testASignalsFile (4)
+    testOSignalsFile (1)
+    testOSignalsFile (2)
+    testOSignalsFile (3)
+    testOSignalsFile (4)
+}
+
+testAll()

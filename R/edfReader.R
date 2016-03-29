@@ -2,7 +2,7 @@
 #
 # Purpose   :   Reading .edf(+)/.bdf(+) files
 #
-# Copyright :   (C) 2015, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -18,6 +18,7 @@
 #
 # History    :
 #   Feb16 - Created, version 1.0.0
+#   Mar16 - Version 1.1.0
 #
 #' edfReader: A package for reading EDF(+) and BDF(+) files
 #'
@@ -34,8 +35,8 @@
 #' @section Details:
 #'  \tabular{lll}{
 #'   Package \tab \verb{ } \tab edfReader \cr
-#'   Version \tab  \tab 1.0.0 \cr
-#'   Date \tab  \tab February 2, 2016 \cr
+#'   Version \tab  \tab 1.1.0 \cr
+#'   Date \tab  \tab March 28, 2016 \cr
 #'   Licence \tab \tab GPL version 3 or newer \cr
 #'   GitHub \tab  \tab https://github.com/Pisca46/edfReader \cr
 #'   Author \tab  \tab Jan Vis, Vis Consultancy \cr

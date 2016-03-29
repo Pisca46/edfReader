@@ -1,0 +1,2 @@
+Version,Subject,Recording,Startdate,Startime,Bytes,Reserved,NumRec,Duration,NumSig
+0       ,X X X X                                                                         ,Startdate 01-JAN-2000 X X X                                                     ,01.01.00,14.15.16,1280    ,EDF+C                                       ,12,0.1     ,2

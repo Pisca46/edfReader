@@ -2,7 +2,7 @@
 #
 # Purpose   :   Reading signals in  .edf(+)/.bdf(+) files
 #
-# Copyright :   (C) 2015, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -19,12 +19,33 @@
 # History    :
 #   Oct15 - Created
 #   Feb16 - Version 1.0.0
+#   Mar16 - Version 1.1.0 with:
+#               - support for multiple annotation signals; multiple annatations per TAL
+#               - annotations data.frame with only one annotation per row (resolves a bug)
+#               - support sub second start specification in first data record (in + file)
+#               - signal names copied from sHeaders
 #
 # Suffixes (not always used):
-# RS and RT : Recoridng Sample number en Time in seconds, i.e. relative to the start of the recording
-# DS and DT : Data record Sample number en Time in seconds, i.e. relative to the start of record
+# HRT       : header reference time, i.e. time in sec relative to start of recording as specified in the header.
+#             one unaligned value for all signals
+# RRT       : recording reference time, i.e. HRT + the subsecond specified as start for the first record, if present.
+#             one unaligned value for all signals
+#             the 'form' and 'till' parameters are interpreted as RRTs
+# ART       : aligned recording timne, i.e. aligned to the signals sample rate started at RRT=0
+#             The difference between RRT and ART is relevant only if the RRT for the start of a data record is not
+#             a muliple of the record duration as specified in the header, i.e. for +D files only.
+# RS        : Sample number relative signal sampling startin at RRT=0
+#
+#             (but note that that the actual start may differ if the first TAL in the first annotation record != 0)
+# DS and DT : Data record Sample number en Time in seconds, i.e. relative to the start of a data record
 # FS and FT : Fragment Sample number en Time in seconds, i.e. relative to the start of signal fragment
 # L and D   : Length (number of samples) and duration (in seconds)
+#
+# prefixes indicate objects (not always used)
+# wRec      : the whole recording
+# dRec      : a data record  (using URT)
+# recS      : a data record signal (using ART)
+# sel       : the selection made with the from and till parameters
 #
 # ------------------------------------------------------------------------------
 #                        read ordinary / annotation signals
@@ -47,17 +68,20 @@
 #'  'All' (default), to include all signals;
 #'  'Ordinary', to include all ordinary signals;
 #'  'Annotations', to include all annotation signals;
-#'  signal labels; and signal numbers (numeric or as character).
+#'  signal labels and/or signal names
+#'  signal numbers (numeric or as character).
 #' @param from numeric, the time in seconds from which the signals shall be read.
 #' @param till numeric, the time in seconds till which the signals shall be read.
-#'   The value may exeed the total duration of the recoding.
+#'   The value may exceed the total duration of the recoding.
 #' @param physical logical, if TRUE (the default) digital samples values are mapped to their physical values,
 #'   If not, the digital values are returned.
 #' @param fragments logical, if TRUE discontinuously recorded signals are stored as a list of continuous
-#'   fragments. If FALSE, a signal is stored as one numeric vector with NA values filling the gaps.
+#'   fragments. If FALSE (the default), a signal is stored as one numeric vector with NA values filling the gaps.
 #' @param recordStarts logical, if TRUE the empty annotations with the data record start time will be
 #'   included in the list of annotations.
 #'   If FALSE (the default), they will be omitted.
+#' @param mergeASignals logical, if TRUE all annotations will wil merged into one data frame. If FALSE
+#'   there will be one data frame per annotation signal.
 #' @param simplify logical, if TRUE and if there is only one signal read, the signal itsels is returned
 #'   (in stead of a list with that signal as the only one object).
 #'   If FALSE, this simplification is not performed.
@@ -92,7 +116,7 @@
 #' summary(someCSignalsPeriod$`sine 8.5 Hz`)    # print a `sine 8.5 Hz` signal summary
 #' str(CSignals$`sine 8.5 Hz`)                  # look to the details
 #' # a discontinuous recording
-#' DFile <- paste (libDir, '/bdfPlusD.bdf', sep='')
+#' DFile <- paste (libDir, '/edfPlusD.edf', sep='')
 #' DHdr  <- readEdfHeader (DFile)
 #' DSignals <- readEdfSignals (DHdr, fragments=TRUE)    # to read all signals
 #' DSignals$`sine 8.5 Hz`                       # print fragmented signal
@@ -100,7 +124,9 @@
 #' str(DSignals$`sine 8.5 Hz`)                  # look to the details
 #' @export
 readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
-                            fragments=FALSE, recordStarts=FALSE, simplify=TRUE) {
+                            fragments=FALSE, recordStarts=FALSE, mergeASignals=TRUE,
+                            simplify=TRUE) {
+
     # check signals and get the indices
     idxAndErr <- edfProcessSignalDesignations (hdr, signals)
     if (is.null(idxAndErr)) stop ("Illegal 'signals' parameter")
@@ -117,25 +143,30 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
     }
 
     if (physical) {                                                             # conversion mut be possible
-       digitalOk    <- hdr$sHeaders$digitalMin  <  hdr$sHeaders$digitalMax
-       physicalOk   <- hdr$sHeaders$physicalMin < hdr$sHeaders$physicalMax
-       digitalErr   <- sum (!digitalOk)
-       physicalErr  <- sum (!physicalOk)
-       if (digitalErr | physicalErr) {
-           if (digitalErr & physicalErr) {
-               msg <- "Illegal digital/physical min/max, use physical=FALSE"
-           } else if (digitalErr) {
-               msg <- "Illegal digital min/max, use physical=FALSE"
-           } else if (physicalErr) {
-               msg <- "Illegal physical min/max, use physical=FALSE"
-           }
-           stop (msg)
-       }
+        digitalOk    <- hdr$sHeaders$digitalMin  <  hdr$sHeaders$digitalMax
+        physicalOk   <- hdr$sHeaders$physicalMin != hdr$sHeaders$physicalMax
+        digitalErr   <- sum (!digitalOk)
+        physicalErr  <- sum (!physicalOk)
+        if (digitalErr | physicalErr) {
+            if (digitalErr & physicalErr) {
+                msg <- "Illegal digital/physical min/max, use physical=FALSE"
+            } else if (digitalErr) {
+                msg <- "Illegal digital min/max, use physical=FALSE"
+            } else if (physicalErr) {
+                msg <- "Illegal physical min/max, use physical=FALSE"
+            }
+            stop (msg)
+        }
     }
 
     # check for annotation and non continuous signals in EDF+ and BDF+
     isPlus       <- hdr$isPlus
     isContinuous <- hdr$isContinuous
+    sgn          <- idxAndErr$signals                                           # signals to be returned
+    oSignals     <- sgn & !hdr$sHeaders$isAnnotation                            # the OSignals
+    annotations1 <- which.max (hdr$sHeaders$isAnnotation)
+    aSignals     <- sgn & hdr$sHeaders$isAnnotation
+    aSignals[annotations1] <- TRUE                                              # contains record start times
 
     if (isPlus & !sum(hdr$sHeaders$isAnnotation)) {
         fp <- paste (hdr$fileType, '+', sep='')
@@ -145,64 +176,79 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
         isContinuous <- TRUE
     }
 
+    # open file; if +C get start time first record and reopen; skip the header  NOTE : seek is not advised for Windows
+    if (file.exists (hdr$fileName)) inFile <- file(hdr$fileName, "rb", encoding="UTF-16LE")
+    else stop (paste ("File '", hdr$fileName, "' doesn't exists.", sep=''))
+    readBin (inFile, 'raw', n=hdr$headerLength , size=1)                        # the header is not needed;
+
     # check and justify 'from' and 'till'
-    from <- max (0, from)
-    if (till < from) {
+    if (from > till) {
         stop ("Illegal from-till range.")
     }
+    wRecFromHRT <- hdr$startSecondFraction                                      # as.numeric (hdr$startTime - trunc (hdr$startTime, 'sec'))
     if (isContinuous & from > hdr$recordedPeriod) {
         stop ("From after the continuously recorded period.")
     }
 
-    # elaborate from-till boundaries per signal
-    DFromRS         <- ceiling (hdr$sHeaders$sRate * from) + 1
-    DFromRT         <- (DFromRS-1) / hdr$sHeaders$sRate
-    DTillRS         <- ceiling (hdr$sHeaders$sRate * till)
-    DTillRT         <- (DTillRS-1) / hdr$sHeaders$sRate
-
-    sgn          <- idxAndErr$signals                                           # signals to be returned
-    annotations1 <- which.max (hdr$sHeaders$isAnnotation)
-
-    # open file and skip the header
-    if (file.exists (hdr$fileName)) inFile <- file(hdr$fileName, "rb", encoding="UTF-16LE")
-    else stop (paste ("File '", hdr$fileName, "' doesn't exists.", sep=''))
-    readBin (inFile, 'raw', n=hdr$headerLength , size=1)                        # the header is not needed;
-                                                                                #seek is not advised for Windows
-    # initialise data objects to be read
+    # initialise signals
     signals <- vector (mode='list', length=hdr$nSignals)                        # new list with a element per signal
-    names (signals) <- hdr$sHeaders$label
+    names (signals) <- row.names (hdr$sHeaders)                                 # signalNames
     nextInCSignal   <- integer (length=hdr$nSignals) + 1                        # used for ordinary continuous signals only
+
+    # intialise signal boundary parameters
+    maxTErr         <- 5 * .Machine$double.eps                                  # normally 5 * 2.220446e-16; to avoid rounding errors when ceiling
+    # aligned start of recording per signal
+    wRecFromART     <- 0                                                        # aligned first recorded sample
+
+    # aligned selection per signal
+    selFromRRT    <- max (0, from)
+    selTillRRT    <- till
+    if (isContinuous) {
+        selTillRRT    <- min (hdr$recordDuration * hdr$nRecords, till)
+    }
+    selFromRS     <- ceiling (hdr$sHeaders$sRate * (selFromRRT - maxTErr)) +1   # aligned first sample in selection per signal
+    selFromART    <- (selFromRS-1) / hdr$sHeaders$sRate                         # aligned start of selection per signal
+    selTillRS     <- ceiling (hdr$sHeaders$sRate * (selTillRRT - maxTErr))      # aligned last sample in selection per signal
+    selTillART    <- (selTillRS-1) / hdr$sHeaders$sRate                         # aligned end of selection per signal
+
+    # initialise data objects to be read
     for (sn in 1:hdr$nSignals) if (sgn[sn]) {                                   # => NULL if not in sgn
+        signals[[sn]]$startTime     <- hdr$startTime
         signals[[sn]]$signalNumber  <- sn
         signals[[sn]]$label         <- hdr$sHeaders$label[sn]
         signals[[sn]]$isContinuous  <- isContinuous
-        signals[[sn]]$isAnnotation  <- hdr$isAnnotation
+        signals[[sn]]$isAnnotation  <- hdr$sHeaders$isAnnotation[sn]
+        if (oSignals[sn]) {
+            signals[[sn]]$recordedPeriod<- hdr$recordedPeriod
+        }
+        signals[[sn]]$totalPeriod   <- as.numeric(NA)
         signals[[sn]]$from          <- from
         signals[[sn]]$till          <- till
-        if (!hdr$sHeaders$isAnnotation[sn]) {
+        if (oSignals[sn]) {
             range <- paste (hdr$sHeaders$physicalMin[sn], " : ", hdr$sHeaders$physicalMax[sn],
                             ' ', hdr$sHeaders$physicalDim[sn], sep = '')
-            signals[[sn]]$start         <- DFromRT[sn]
-            signals[[sn]]$fromSample    <- DFromRS[sn]
+            signals[[sn]]$start         <- selFromART[sn]
+            signals[[sn]]$fromSample    <- selFromRS[sn]
             signals[[sn]]$transducerType<- hdr$sHeaders$transducerType[sn]
             signals[[sn]]$sampleBits    <- hdr$sampleBits
             signals[[sn]]$sRate         <- hdr$sHeaders$sRate[sn]
             signals[[sn]]$range         <- range
             signals[[sn]]$preFilter     <- hdr$sHeaders$preFilter[sn]
         }
-        if (hdr$sHeaders$isAnnotation[sn]) {
+        if (aSignals[sn]) {
             signals[[sn]]$annotations <- vector("list", length=hdr$nRecords)    # initialise for raw data per record
             class(signals[[sn]]) <- 'ebdfASignal'
         } else if (isContinuous) {
-            maxTill <- min (DTillRS[sn], hdr$sHeaders$sLength[sn])
-            l       <- max (0, maxTill-DFromRS[sn]+1)
-            signals[[sn]]$signal <- integer (length=l)                          # initialise with 0 signal
-            if (l==0) {
-                signals[[sn]]$start         <- as.numeric (NA)
-                signals[[sn]]$fromSample    <- as.numeric (NA)
+            for (sn in 1:hdr$nSignals) if (oSignals[sn]) {
+                l       <- max (0, selTillRS[sn] - selFromRS[sn] + 1)
+                signals[[sn]]$signal <- integer (length=l)                      # initialise with 0 signal
+                if (l==0) {
+                    signals[[sn]]$start         <- as.numeric (NA)
+                    signals[[sn]]$fromSample    <- as.numeric (NA)
+                }
+                class(signals[[sn]]) <- 'ebdfCSignal'
             }
-            class(signals[[sn]]) <- 'ebdfCSignal'
-        } else {
+        } else {   # +D signal
             signals[[sn]]$rFragments <- vector("list", length=hdr$nRecords)     # initialise for raw data per record
             class(signals[[sn]]) <- 'ebdfFSignal'
         }
@@ -210,61 +256,44 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
 
     # read
     # cat ("Reading file", hdr$fileName, "signals, please wait.\n")
-    sampleSize      <- hdr$sampleBits / 8
-
-    nextCSample     <- 1
     for (rn in 1:hdr$nRecords) {
-        # read record
-        samples <- vector (mode='list', length=hdr$nSignals)
-        for (sn in 1:hdr$nSignals) {                                            # read all signals (i.e. don't use a seek)
-            n  <- hdr$sHeaders$samplesPerRecord[sn]
-            # read all record data
-            if (sampleSize ==2 & !hdr$sHeaders$isAnnotation[sn]) {              # ordinary 16 bits signal
-                samples[[sn]] <- readBin (inFile, integer(), n=n, size=sampleSize,   signed=TRUE, endian="little")
-            } else {                                                            # annotation or 24 bits
-                samples[[sn]] <- readBin (inFile, integer(), n=n*sampleSize, size=1, signed=TRUE, endian="little")
-            }
-        }
-        # get the start time
-        recordStartRT <- hdr$recordDuration * (rn-1)
+        samples <- readNextDataRecord (hdr, inFile)                             # read next data record
+        # get the start data
+        dRecFromRRT <- hdr$recordDuration * (rn-1)                              # if continuous
+        dRecFromRS  <- hdr$sHeaders$samplesPerRecord * (rn-1) + 1               # idem
+        dRecFromART <- rep (dRecFromRRT, times= hdr$nSignals)                   # idem
         if (isPlus) {
-            annorecordStartRT <- getrecordStartRT (samples[[annotations1]])
-            if (!hdr$isContinuous) {
-                # if '+' & continuous the record duration is used instead
-                # this shouldn't make a difference (but see check below)
-                recordStartRT <- annorecordStartRT
-            } else { # check for a rounding errror
-                minSamplePeriod <- min(1/hdr$sHeaders$sRate)
-                if (abs(recordStartRT - annorecordStartRT) >  minSamplePeriod/2) {
-                    cat ("RECORD START ROUNDING ERROR: annotation start=", annorecordStartRT,
-                         "Record * recordDuration=", recordStartRT, '\n')
+            dRecFromHRT <- getAnnoRecordStartRT (samples[[annotations1]])       # stated record start (in annotations1)
+            if (hdr$isContinuous) {
+                maxStartTDiff   <- 1e-10                                        # more tolerant, only used for a warning
+                if ( abs(dRecFromHRT - dRecFromRRT -  wRecFromHRT) > maxStartTDiff) {
+                    cat ("WARNING: Ambiguous data record start:\n",
+                         "- start according to annotation signal:", dRecFromHRT - wRecFromHRT, '\n',
+                         "- start based on recordDuration:", dRecFromRRT, '\n')
                 }
+            } else {                                                            # if not conintuous
+                dRecFromRRT <- dRecFromHRT - wRecFromHRT
+                dRecFromRS  <- ceiling (hdr$sHeader$sRate * (dRecFromRRT - maxTErr)) + 1
+                dRecFromART <- (dRecFromRS-1) / hdr$sHeaders$sRate
             }
         }
-        # (pre)process the singals to be read
+
+        # (pre)process the signals to return
         for (sn in 1:hdr$nSignals) if (sgn[sn]) {
             if (hdr$sHeaders$isAnnotation[sn]) {
                 signals[[sn]]$annotations[[rn]] <- samples[[sn]]
             } else {                                                            # an ordinary signal
                 # set read boundaries for this record
-                recordL <- hdr$sHeader$samplesPerRecord[sn]
-                # get first sample since start recording
-                if (isContinuous) recordStartRS <- (rn-1)*recordL + 1
-                else              recordStartRS <- ceiling (recordStartRT * hdr$sHeader$sRate[sn]) + 1
-
+                sLength <- hdr$sHeader$samplesPerRecord[sn]                     # signal samples per record
                 skipRecord      <- FALSE
                 wholeRecord     <- TRUE
-                rSignalStartRS  <- recordStartRS                                # if wholeRecord
-                rSignalStartRT  <- recordStartRT
-                if (from | till != Inf) {
-                    fromDS      <- max (0, DFromRS[sn] - recordStartRS + 1)
-                    tillDS      <- min (recordL, DTillRS[sn] - recordStartRS + 1)
-                    skipRecord  <- (fromDS > recordL) | (tillDS <= 0)
-                    wholeRecord <- (fromDS == 1) & (tillDS == recordL)
-                    if (fromDS > 1) {
-                        rSignalStartRS   <- recordStartRS + fromDS - 1
-                        rSignalStartRT   <- (rSignalStartRS -1) / hdr$sHeaders$sRate[[sn]]
-                    }
+                drsFromRS       <- dRecFromRS[sn]                               # dataRecordSignal
+                drsFrommART     <- dRecFromART[sn]
+                if (selFromRS[sn] > 0 | till < Inf) {
+                    fromDS      <- max (1, selFromRS[sn] -  drsFromRS + 1)
+                    tillDS      <- min (sLength, selTillRS[sn] - drsFromRS + 1)
+                    skipRecord  <- (fromDS > sLength) | (tillDS <= 0)
+                    wholeRecord <- (fromDS == 1) & (tillDS == sLength)
                 }
 
                 # convert sample values
@@ -285,9 +314,13 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
                         signals[[sn]]$signal[nextInCSignal[sn]:lastOne] <- samples[[sn]]  # copy to signals[[sn]]$signal
                         nextInCSignal[sn] <- lastOne + 1
                     } else {                                                    # not a continuous signal
-                        signals[[sn]]$rFragments[[rn]] <- list (recordStartRT=recordStartRT, rSignalStartRS=rSignalStartRS,
-                                                                rSignalStartRT=rSignalStartRT,signal=samples[[sn]])
-                        # note the signal lenght depends on the sRate and may be 0 (due to from / till values)
+                        fsFromRS    <- drsFromRS + fromDS - 1
+                        fsFromART   <- (fsFromRS-1) / hdr$sHeaders$sRate[sn]
+                        fsFromRRT   <- max (dRecFromRRT, selFromRRT)
+                        signals[[sn]]$rFragments[[rn]] <- list (fsFromART=fsFromART, fsFromRS=fsFromRS,
+                                                                fsFromRRT=fsFromRRT,
+                                                                drsFromRS=drsFromRS,
+                                                                signal=samples[[sn]])
                     }
                 }
             }
@@ -295,31 +328,50 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
     }
     close(inFile)
 
-    totalPeriod <- recordStartRT + hdr$recordDuration                           # recordStartRT = start last record
-    if (till >= totalPeriod)  {
-        for (sn in 1:hdr$nSignals) {
-            DTillRT[sn] <- totalPeriod
-            DTillRS[sn] <- ceiling (hdr$sHeader$sRate[sn] * DTillRT[sn])
-        }
-
+    wRecTillRRT <- dRecFromRRT + hdr$recordDuration
+    wRecTillRS  <- dRecFromRS + hdr$sHeader$samplesPerRecord - 1                # recordStartRS = aligned first sample last record
+    wRecTillART <- wRecTillRS / hdr$sHeaders$sRate                              # = total recording period
+    # save total period, recorded period (which may be part of the total period for EDF-D files)
+    for (sn in 1:hdr$nSignals) if (sgn[sn]) {
+        signals[[sn]]$totalPeriod       <- wRecTillRRT                          # including gaps
+#        signals[[sn]]$recordedPeriod    <- wRecTillART
     }
+
     # process annotations
     for (sn in 1:hdr$nSignals) if (sgn[sn] & hdr$sHeaders$isAnnotation[sn]) {
         signals[[sn]]$annotations <- edfProcesAnnotations (
             hdr=hdr, ASignal=signals[[sn]],
-            # hdr=hdr, ASignal=signals[[sn]]$annotations,from = from, till = till,
             isFirstASignal = sn==annotations1, recordStarts=recordStarts
         )
     }
+    # merge ASignals if requested
+    if (mergeASignals) {
+        annoSL <- hdr$sHeaders$isAnnotation & sgn
+        if (sum(annoSL) > 1) {
+            annoSN  <- which (annoSL)
+            annoSN1 <- which.max (annoSL)
+            signals[[annoSN1]]  <- doMergeASignals (signals[annoSN], annoSN)
+            annoSL[annoSN1]     <- FALSE
+            sgn     <- sgn & !annoSL
+
+            names           <- names (signals)
+            names[annoSN1]  <- substr (names[annoSN1], 1, 15)                   # remove suffix
+            names(signals)  <- names
+        }
+    }
+    # sort annotations
+    annoSL <- hdr$sHeaders$isAnnotation & sgn
+    if (sum(annoSL)) {
+        for (sn in 1:hdr$nSignals) if (annoSL[sn]) {
+            annots  <- signals[[sn]]$annotations
+            annots  <- annots[order(annots$onset),]
+            signals[[sn]]$annotations <- annots
+        }
+    }
 
     # process D signals
-    nDSignals <- 0
-    if (!isContinuous) {                                                        # i.e.  EDF/BDF-D file
-        dSignals <- sgn & !hdr$sHeaders$isAnnotation                            # the DSignals
-        nDSignals <- sum (dSignals)
-    }
-    if (nDSignals) {
-        for (sn in 1:hdr$nSignals) if (dSignals [sn]) {
+    if (!isContinuous & sum(oSignals)) {                                        # i.e.  +D file with ordinary siganals
+        for (sn in 1:hdr$nSignals) if (oSignals [sn]) {
 
             # remove empty signal rFragments
             usedRFragments <- !sapply(signals[[sn]]$rFragments, is.null)
@@ -328,30 +380,25 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
             # and check that no empty signals remain
             signalsL <- sapply (signals[[sn]]$rFragments, function(F) {length (F$signal)})
             noSignal <- signalsL == 0
-            if (sum(noSignal)) cat ("readEdfSignal ERROR: Fragments with no signal !!!!!!!!!\n")
+            if (sum(noSignal)) cat ("readEdfSignals ERROR: Fragments with no signal !!!!!!!!!\n")
 
             if (!fragments) { # create a continuous signal with NAs
-                tillRS <-DTillRS[[sn]]
-                if (tillRS==Inf) tillRS <- totalPeriod
-                signals[[sn]] <- fragmentsToSignal (signals[[sn]], DFromRT[[sn]], DFromRS[[sn]], tillRS)
-            } else {  # fragmented, concatenate contigious DSignal rFragments
-                signals[[sn]]$fragments <- concatenateFragments (signals[[sn]]$rFragments, hdr$recordDuration)
+                till <- min (wRecTillRS[sn], selTillRS[sn])
+                signals[[sn]] <- fragmentsToSignal (signals[[sn]], selFromRRT, selFromRS[sn], till)
+            } else {  # fragmented, concatenate contiguous DSignal rFragments
+                signals[[sn]]$fragments <- concatenateFragments (signals[[sn]]$rFragments, hdr$sHeaders$samplesPerRecord[sn])
             }
             signals[[sn]]$rFragments <- NULL
         }
     }
 
-    # save total period, recorded period (which may be part of the total period for EDF-D files)
-    for (sn in 1:hdr$nSignals) {
-        signals[[sn]]$recordedPeriod<- hdr$recordedPeriod                       # i.e. excluding gaps for dSignals
-        signals[[sn]]$totalPeriod   <- totalPeriod                              # including gaps01
-    }
     # return the signals requested
     signals <- signals [sgn]
     class (signals) <- c("ebdfSignals", "list")
     if (simplify & length (signals)==1) signals <- signals[[1]]
     signals
 }
+
 # ------------------------------------------------------------------------------
 #                        supplementary functions
 # ------------------------------------------------------------------------------
@@ -372,26 +419,48 @@ readEdfSignals <- function (hdr, signals='All', from=0, till=Inf, physical=TRUE,
 #
 # @keywords internal
 edfProcessSignalDesignations <- function (hdr, signals='All') {
-    errors      <- (rep (FALSE, length(signals)))
-    indices     <- (rep (FALSE, hdr$nSignals))
+    errorsL     <- rep (FALSE, length(signals))
+    indicesL    <- rep (FALSE, hdr$nSignals)
     outOfBound  <- integer (length=0)
     for (sn in 1:length(signals)) {
-        if      (signals[sn] == 'All')           indices[] <- TRUE
-        else if (signals[sn] == 'Ordinary')      indices <- indices | !hdr$sHeaders$isAnnotation
-        else if (signals[sn] == 'Annotations')   indices <- indices | hdr$sHeaders$isAnnotation
+        if      (signals[sn] == 'All')           indicesL[] <- TRUE
+        else if (signals[sn] == 'Ordinary')      indicesL <- indicesL | !hdr$sHeaders$isAnnotation
+        else if (signals[sn] == 'Annotations')   indicesL <- indicesL |  hdr$sHeaders$isAnnotation
         else  {
             idx <- suppressWarnings (as.integer(signals[sn]))                   # try a (coerced) integer
-            if (is.na(idx)) idx <- match (signals[sn], hdr$sHeaders$label)      # if not an integer, search for the name
-            if (is.na (idx)) {
-                errors [sn] <- TRUE
-            } else if (idx>hdr$nSignals) {                                       # out of bound, report
-                outOfBound <- c(outOfBound, idx)
-            } else {                                                            # success, include
-                indices [idx] <- TRUE
+            if (!is.na(idx))
+                if (idx <= hdr$nSignals) indicesL [idx] <- TRUE
+                else                     outOfBound     <- c(outOfBound, idx)
+            else {
+                labels  <- hdr$sHeaders$label
+                labelsL <- labels == signals[sn]
+                rNames  <- row.names(hdr$sHeaders)
+                rNamesL <- rNames == signals[sn]
+                someFound <- sum (labelsL) + sum (rNamesL)
+                if (someFound) {
+                    indicesL <- indicesL | labelsL |  rNamesL
+                } else{
+                    errorsL [sn] <- TRUE
+                }
             }
         }
     }
-    list (signals=indices, errors=errors, outOfBound=outOfBound)
+    list (signals=indicesL, errors=errorsL, outOfBound=outOfBound)
+}
+
+readNextDataRecord <- function (hdr, inFile) {
+    samples     <- vector (mode='list', length=hdr$nSignals)
+    sampleSize  <- hdr$sampleBits / 8
+    for (sn in 1:hdr$nSignals) {                                                # read all signals (i.e. don't use a seek)
+        n  <- hdr$sHeaders$samplesPerRecord[sn]
+        # read all record data
+        if (sampleSize ==2 & !hdr$sHeaders$isAnnotation[sn]) {                  # ordinary 16 bits signal
+            samples[[sn]] <- readBin (inFile, integer(), n=n, size=sampleSize,   signed=TRUE, endian="little")
+        } else {                                                                # annotation or 24 bits
+            samples[[sn]] <- readBin (inFile, integer(), n=n*sampleSize, size=1, signed=TRUE, endian="little")
+        }
+    }
+    samples
 }
 
 int1sToInt3s <- function (int1s) {                                              # int1s: array of *signed* 1 byte integers
@@ -415,10 +484,10 @@ int1sToInt3s <- function (int1s) {                                              
 # @param annotationSignal The first annoation signal from the data record
 # @return The start time in seconds
 # @keywords internal
-getrecordStartRT <- function (annotationSignal) {
+getAnnoRecordStartRT <- function (annotationSignal) {
     endings <- which(annotationSignal==0)                                       # the TAL endings / separators 0
     tal1    <- annotationSignal [1:(endings[1]-1)]
-    pt      <- parseTal (tal1, isRecordStart=TRUE)
+    pt      <- parseTal (tal1)
     pt$onset
 }
 
@@ -433,46 +502,62 @@ getrecordStartRT <- function (annotationSignal) {
 #      isRecordStart, annotations
 #
 # @keywords internal
-edfProcesAnnotations <- function (hdr, ASignal, from=0, till=Inf, isFirstASignal, recordStarts) {
+edfProcesAnnotations <- function (hdr, ASignal, isFirstASignal, recordStarts) {
+    nAnnots <- 0
     nTals   <- 0
-    from <- ASignal$from
-    till <- ASignal$till
+    from <- ASignal$from - .Machine$double.eps                                  # to mitigate rounding errors
+    till <- ASignal$till + .Machine$double.eps
     annots <- ASignal$annotations
 
-    for (rn in 1:hdr$nRecords) {                                                # for each record
+    for (rn in 1:hdr$nRecords) {                                                # strip & count for each record
         rnAnnots <- annots[[rn]]
         # remove trailing zero's
         i <- length(rnAnnots)
-        while (rnAnnots[i]==0) i <- i-1
+        while (i>0 && rnAnnots[i]==0) i <- i-1  #  !!!! or check for last '20' !!!!!!!!!!
         rnAnnots  <- rnAnnots[1:(i+1)]                                          # keep last TAL delimiter
         # add the number of TALs endings, i.e. the number of '0's
-        nTals   <- nTals + length (which(rnAnnots==0))
+        if (length(rnAnnots) > 1) {
+            nTals   <- nTals   + sum (rnAnnots==0)
+            nAnnots <- nAnnots + sum (rnAnnots==20)                             # still needs adjustment
+        }
         annots[[rn]] <- rnAnnots
     }
-    if (isFirstASignal & !recordStarts) nTals <- nTals -hdr$nRecords    # ommit the recordstart times
+    # adjust nAnnots
+    nAnnots <- nAnnots - nTals                                                  # per TAL: annots in between '20's
+    if (isFirstASignal & !recordStarts) nAnnots <- nAnnots -hdr$nRecords        # ommit the recordstart times
+
     # create empty data frame (possibly too  long because of a from - till range)
-    annotations <- data.frame(record=integer(nTals), onset=numeric(nTals), duration=numeric(nTals),
-                              isRecordStart=logical(nTals), annotations=character(nTals), stringsAsFactors=FALSE)
+    annotations <- data.frame(record=integer(nAnnots), onset=numeric(nAnnots),
+                              duration=numeric(nAnnots), isRecordStart=logical(nAnnots),
+                              annotation=character(nAnnots), stringsAsFactors=FALSE
+                              )
     nextAnnon <- 1
     for (rn in 1:hdr$nRecords) {                                                # for each record
         rnAnnots <- annots[[rn]]
         endings <- which (rnAnnots==0)                                          # the TAL endings / separators 0
-        RTals   <- length (endings)
-
-        fromChar    <- 1
-        for (tn in 1:RTals) {
-            tal  <- rnAnnots[fromChar:(endings[tn]-1)]                          # tal wich trailing 20
-            fromChar <- endings[tn] +1
-            isRecordStart <- isFirstASignal & tn==1
-            if (!isRecordStart | recordStarts) {
-                pt   <- parseTal (tal, isRecordStart=isRecordStart)
-                if (from <=pt$onset & pt$onset < till) {
-                    annotations$record[nextAnnon]       <- rn
-                    annotations$onset[nextAnnon]        <- pt$onset
-                    annotations$duration[nextAnnon]     <- pt$duration
-                    annotations$isRecordStart[nextAnnon]<- isRecordStart
-                    annotations$annotations[nextAnnon]  <- pt$annotations
-                    nextAnnon <- nextAnnon +1
+        ending1 <- endings[1]
+        fromChar<- 1
+        if (length(rnAnnots) > 1) for (it in endings) {
+            tal  <- rnAnnots[fromChar:(it-1)]                                   # tal which trailing 20
+            fromChar <- it + 1
+            pt   <- parseTal (tal)
+            if (from <=pt$onset & pt$onset < till) {
+                anns    <- pt$annotations
+                for (ia in 1:length(anns)) {
+                    isRecordStart <- isFirstASignal & it==ending1 & ia ==1
+                    if (isRecordStart) {                                        # the firts annoatation must be empty
+                        if (anns[ia]!="") {
+                            cat ('Illegal annotation signal, the start time annotation must be empty\n')
+                        }
+                    }
+                    if (recordStarts || !isRecordStart) {
+                        annotations$record[nextAnnon]       <- rn
+                        annotations$onset[nextAnnon]        <- pt$onset
+                        annotations$duration[nextAnnon]     <- pt$duration
+                        annotations$isRecordStart[nextAnnon]<- isRecordStart
+                        annotations$annotation[nextAnnon]   <- anns[ia]
+                        nextAnnon <- nextAnnon +1
+                    }
                 }
             }
         }
@@ -480,7 +565,7 @@ edfProcesAnnotations <- function (hdr, ASignal, from=0, till=Inf, isFirstASignal
     if (nextAnnon == 1) {
         # remove if record == 0, i.e. remove the empty row
         annotations <- annotations[annotations$record, ]
-    } else if (nextAnnon - 1 < nTals) annotations <- annotations[1:(nextAnnon - 1),]
+    } else if (nextAnnon - 1 < nAnnots) annotations <- annotations[1:(nextAnnon - 1),]
     annotations
 }
 
@@ -492,7 +577,7 @@ edfProcesAnnotations <- function (hdr, ASignal, from=0, till=Inf, isFirstASignal
 # @param isRecordStart True if the TAL is the first one in a record, FALSE if not
 # @return A list with the following values: onset, duration, annotations
 # @keywords internal
-parseTal <- function (tal, isRecordStart) {
+parseTal <- function (tal) {
     endings <- which(tal==20)                                                   # locate 'phrase' trailing delimiters '20'
     onsetPlusDuration <- tal[1:(endings[1]-1)]                                  # without trailing 20
     di <- which(onsetPlusDuration==21)                                          # locate start delimiter for 'duration'
@@ -503,11 +588,6 @@ parseTal <- function (tal, isRecordStart) {
         onset   <- as.numeric (intToUtf8 (onsetPlusDuration))
         duration<- NA
     }
-    if (isRecordStart) {                                                        # the firts annoatation must be empty
-        if (endings[1] +1 != endings[2]) {
-            cat ('Illegal annotation signal, the start time annotation must be empty\n')
-        }
-    }
     l <-length (endings)
     if (l-1)    annotations <- character(l-1)                                   # l-1 = number of annotations
     else        annotations <- ''
@@ -517,51 +597,66 @@ parseTal <- function (tal, isRecordStart) {
     }
     list (onset=onset, duration=duration, annotations=annotations)
 }
+
+doMergeASignals <- function (ASignals, annoSN) {
+    for (sn in 1:length(ASignals)) {
+        ASignals[[sn]]$annotations$fromSignal <- annoSN[sn]
+    }
+    ASignal1 <- ASignals[[1]]
+    mergedAnnos <- ASignal1$annotations
+    l <- length(ASignals)
+    if (l>1) for (i in 2:l) {
+        mergedAnnos <- rbind (mergedAnnos, ASignals[[i]]$annotations)
+    }
+    ASignal1$annotations    <- mergedAnnos
+    ASignal1$signalNumber   <- annoSN
+    ASignal1
+}
+
 # ------------------------------------------------------------------------------
 #                          D signal functions
 # ------------------------------------------------------------------------------
-fragmentsToSignal <- function (fsignal, fromRT, fromRS, tillRS) {
-    # replace the rFragment in fSignal
-    fsignal$signal       <- fragmentsSignalToSignal (fsignal$rFragments, fromRS, tillRS)
+fragmentsToSignal <- function (fsignal, sSelFromRRT, sSelFromRS, sSelTillRS) {
+    fsignal$signal      <- fragmentsSignalToSignal (fsignal$rFragments, sSelFromRS, sSelTillRS)
     if (length(fsignal$signal)) {
-        fsignal$start       <- fromRT
-        fsignal$fromSample  <- fromRS
+        fsignal$start       <- sSelFromRRT
+        fsignal$fromSample  <- sSelFromRS
     }
     else {
-        fsignal$start       <- as.numeric(NA)
-        fsignal$fromSample  <- as.numeric(NA)
+        fsignal$start       <- as.numeric (NA)
+        fsignal$fromSample  <- as.numeric (NA)
     }
-    class(fsignal)       <- 'ebdfCSignal'
+    class(fsignal)  <- 'ebdfCSignal'
     fsignal
 }
 
-fragmentsSignalToSignal <- function (rFragments, fromRS, tillRS) {
-    nSamples        <- max (0, tillRS - fromRS + 1)
-    signal          <- numeric (length=nSamples)                                # memory check ??
+fragmentsSignalToSignal <- function (rFragments, sSelFromRS, sSelTillRS) {
+    signal      <- integer (length=0)
+    nSamples    <- max (0, sSelTillRS - sSelFromRS + 1)
     if (nSamples) {
-        signal[1:nSamples] <- NA
+        signal          <- rep (as.numeric(NA), nSamples)                       # memory check ??
         if (length(rFragments)) for (fn in 1:length(rFragments)) {
             rFragment   <- rFragments[[fn]]
-            rSStartRS   <- rFragment$rSignalStartRS
-            sFromFS     <- rSStartRS - fromRS + 1                               # from in from-till signal fragment
-            sTillFS     <- sFromFS + length (rFragment$signal) - 1
-            signal[sFromFS:sTillFS] <- rFragment$signal
+            fStartRS    <- rFragment$fsFromRS
+            fFromFS     <- fStartRS - sSelFromRS + 1                                # from in from-till signal fragment
+            fTillFS     <- fFromFS + length (rFragment$signal) - 1
+            signal[fFromFS:fTillFS] <- rFragment$signal
         }
     }
     signal
 }
 
-concatenateFragments <- function (rFragments, recordD) {
+concatenateFragments <- function (rFragments, recordL) {
     nOld <- length (rFragments)
     fragments <- vector("list", length=0)
     if (nOld) {
-        oldToNew <- getOldToNew (rFragments, recordD)
-        fragments <- getNewFragments (rFragments, oldToNew)
+        oldToNew    <- getOldToNew (rFragments, recordL)
+        fragments   <- getNewFragments (rFragments, oldToNew)
     }
     fragments
 }
 
-getOldToNew <- function (rFragments, recordD) {
+getOldToNew <- function (rFragments, recordL) {
     nOld        <- length (rFragments)
     oldToNew    <- integer (length=nOld)
     tol         <- 1e-6
@@ -569,9 +664,9 @@ getOldToNew <- function (rFragments, recordD) {
     newCnt      <- 1
     oldToNew[1] <- newCnt
     if (nOld > 1) for (oldCnt in 2:nOld) {
-        t1 <- rFragments[[oldCnt-1]]$rSignalStartRT + recordD
-        t2 <- rFragments[[oldCnt  ]]$rSignalStartRT
-        if (abs(t1 - t2) > tol) newCnt <- newCnt +1
+        s1 <- rFragments[[oldCnt-1]]$drsFromRS + recordL
+        s2 <- rFragments[[oldCnt  ]]$drsFromRS
+        if (s1 != s2) newCnt <- newCnt +1
         oldToNew [oldCnt] <- newCnt
     }
     oldToNew
@@ -597,9 +692,12 @@ getNewFragments <- function (rFragments, oldToNew) {                            
             newFrom <- nextFrom
         }
 
-        fromRT <- rFragments[[toCopyN[1]]]$rSignalStartRT
-        fromRS <- rFragments[[toCopyN[1]]]$rSignalStartRS
-        newFragments[[nfi]] <- list (start=fromRT, fromSample=fromRS, signal= newSignal)
+        fromART <- rFragments[[toCopyN[1]]]$fsFromART
+        fromRS  <- rFragments[[toCopyN[1]]]$fsFromRS
+        fromRRT <- rFragments[[toCopyN[1]]]$fsFromRRT
+        newFragments[[nfi]] <- list (start=fromART, fromSample=fromRS,
+                                     recordingStart=fromRRT, signal= newSignal)
     }
     newFragments
 }
+

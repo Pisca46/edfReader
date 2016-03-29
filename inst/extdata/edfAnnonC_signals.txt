@@ -1,0 +1,3 @@
+Signal,Label,Transducer,Units,Min,Max,Dmin,Dmax,PreFilter,Smp/Rec,Reserved
+2,Channel 1       ,                                                                                ,uV      ,-10000.000000,10000.000000,-32768,32767,                                                                                ,3000,                                
+4,Channel 2       ,                                                                                ,uV      ,-10000.000000,10000.000000,-32768,32767,                                                                                ,2000,                                
