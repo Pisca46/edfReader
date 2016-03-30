@@ -7,4 +7,3 @@
 ^README-.*\.png$
 ^cran-comments\.md$
 ^\.travis\.yml$
-^NEWS\.md$
