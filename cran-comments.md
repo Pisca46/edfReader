@@ -1,22 +1,27 @@
 ### Test environments
 * local OS X El Capitan with R 3.2.4
 * ubuntu 12.04 (on travis-ci), R 3.1.2
-* local Windows 10 with R 3.2.3
+* Winbuilder with R version 3.2.4 Revised and R version 3.3.0 alpha
 
 ### R CMD check results
 
 0 errors | 0 warnings | 0 note
 
-* This is a second release.
+### Winbuilder results
 
-### Reverse dependencies
+1 Note regarding possible spelling errors in DESCRIPTION
 
-* This is a second release
+This has been checed and:
 
-### Regarding winBuilder notes:
+* both BDF and EDF are correctly spelled
 
-* both BDF and EDF are correctly spelled in DESCRIPTION
+* BioSemi is correctly spelled
 
-* BioSemi is correctly spelled in the description
+### Travis CI result
+
+exited with 0
+
+
+
 
 
