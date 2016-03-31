@@ -3,15 +3,15 @@
 ### 1 API change:
 
 Within the annotations object in an ebfdAsignal object 'annotations' has been changed to 'annotation'
-Reason: It contanins only one annotation
+Reason: It contains only one annotation
 
-### Other chages:
+### Other changes:
 
-* support for EDF+ / BDF+ files with multiple annocation signals
+* support for EDF+ / BDF+ files with multiple annotation signals
 
 * support for non unique labels
 
-* support for TAL'as with multiple annotations  
+* support for TAL's with multiple annotations  
 
 * support of sub second start info in first data record 
 
