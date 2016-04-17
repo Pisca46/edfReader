@@ -23,8 +23,8 @@ The objects returned by these functions are described in the package vignette.
 
  \tabular{lll}{
   Package \tab \verb{ } \tab edfReader \cr
-  Version \tab  \tab 1.1.0 \cr
-  Date \tab  \tab March 28, 2016 \cr
+  Version \tab  \tab 1.1.1 \cr
+  Date \tab  \tab April 17, 2016 \cr
   Licence \tab \tab GPL version 3 or newer \cr
   GitHub \tab  \tab https://github.com/Pisca46/edfReader \cr
   Author \tab  \tab Jan Vis, Vis Consultancy \cr

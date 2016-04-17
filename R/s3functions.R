@@ -20,6 +20,7 @@
 # History    :
 #   Oct15 - Created
 #   Mar16 - Revised, version 1.1.0
+#   Apr16 - version 1.1.1, no changes
 # ------------------------------------------------------------------------------
 #                           s3 header functions
 #                        objects: ebdfHeader & ebdfSHeader
@@ -100,6 +101,11 @@ summary.ebdfSHeaders <- function (object, ...) {
 #                            s3 lists of signals
 #                            object: ebdfSignals
 # ------------------------------------------------------------------------------
+#' @export
+print.ebdfSignals <- function (x, ...) {
+    printSummarySignals (x, isSumm=FALSE)
+}
+
 #' @export
 summary.ebdfSignals <- function (object, ...) {
     printSummarySignals (object, isSumm=TRUE)

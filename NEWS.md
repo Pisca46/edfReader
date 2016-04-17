@@ -1,4 +1,8 @@
-### New in version 1.1.0
+## New in version 1.1.1
+
+* a example of a plot function added to the vignette. 
+
+## New in version 1.1.0
 
 ### 1 API change:
 

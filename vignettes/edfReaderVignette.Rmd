@@ -372,6 +372,64 @@ The annotation attribute contains the annotations associated with the onset and 
 
 The fromSignal attribute, if present, refers to the signal that contains the annotation. This attributed is present only if the annotations from different signals were merged into one ‘ebdfASignal’ object. 
 
+# Next step: a  quick look
+One of the the first things you may want to do with the imported signals is to have look at them.
+
+This can be acheived with one of the several plot packages available, e.g.:
+
+	- ‘plot’ (included in the base installation)
+
+	- ‘lattice', or
+
+	- 'ggplot2' 
+
+As an example, the function plotEdfSignals() uses ggplot2 and will plot one or more signals  
+over some period of time. The plot shown presents the period from 0.2 till 0.5 seconds of the 
+'sine 8.5 Hz' and the 'sine 50 Hz' signals in CSignals.
+
+```{r, fig.width=7.2, fig.height=2.5}
+plotEdfSignals <- function (signals,labels, from=0, till=Inf) {
+    nLabels <- length (labels)
+    sRate   <- numeric (length = nLabels)
+    fromS   <- integer (length = nLabels)
+    tillS   <- integer (length = nLabels)
+    sLength <- integer (length = nLabels)
+    for (i in 1:nLabels) {
+        sRate[i]    <- signals[[labels[i]]]$sRate
+        fromS[i]    <- ceiling (sRate[i] * max (from, 0)) +1
+        tillS[i]    <- ceiling (sRate[i] * till)
+        tillS[i]    <- min (tillS[i], length(signals[[labels[i]]]$signal))
+        sLength[i]  <- tillS[i] - fromS[i] + 1 
+    }
+    totLength  <- sum (sLength)
+    cat (" totLength=",  totLength)
+    time    <- numeric   (length = totLength)
+    signal  <- numeric   (length = totLength)
+    label   <- character (length = totLength)
+    from <- 1
+    for (i in 1:nLabels) {
+        till <- from + sLength[i] - 1
+        time  [from:till]   <- seq (from=fromS[i]-1, to=(tillS[i]-1)) / sRate[i]
+        signal[from:till]   <- signals[[labels[i]]]$signal[fromS[i]:tillS[i]]
+        label [from:till]   <- rep(labels[i], sLength[i])
+        from <- till + 1
+    }
+    cat (" | from-1=", from-1,'\n')
+    
+    ggplotDF <- data.frame (time=time, signal=signal, label=label)
+    ggplot (ggplotDF, aes(x=time, y=signal, colour=label)) + geom_line()
+}
+
+if (require(ggplot2)) {
+    CSignals <- readEdfSignals (CHdr)
+    plotEdfSignals (CSignals, labels=c('sine 8.5 Hz', 'sine 50 Hz'), from=.2, till=0.5)
+}
+```
+
+For details about ggplot2 see e.g. the 'R Graphics cookbook'
+
+Enjoy.
+
 # Acknowledgement
 This package has used code from
 

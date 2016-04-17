@@ -27,6 +27,7 @@
 #   Feb16 - Version 1.0.0
 #   Mar16 - Version 1.1.0 support for non-unique signals labels
 #                         & sub second start data from data record
+#   Apr16 - Version 1.1.1, no changes
 # ------------------------------------------------------------------------------
 #                                read EDF header
 # ------------------------------------------------------------------------------
