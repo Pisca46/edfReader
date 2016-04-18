@@ -1,7 +1,7 @@
 ### Test environments
 * local OS X El Capitan with R 3.2.4
-* ubuntu 12.04 (on travis-ci), R 3.1.2
-* Winbuilder with R version 3.2.4 Revised and R version 3.3.0 alpha
+* ubuntu 12.04 (on travis-ci), R 3.2.4
+* Winbuilder with R version 3.3.0 beta
 
 ### R CMD check results
 
@@ -20,6 +20,10 @@ This has been checed and:
 ### Travis CI result
 
 exited with 0
+
+### devtools::release()  (Monday April 18)
+I received the notification: R is out of date (3.2.4 vs 3.2.5)
+However accoring to R itself and accoring to CRAN R is up to date (I am using OSX)
 
 
 
