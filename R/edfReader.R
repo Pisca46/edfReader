@@ -20,6 +20,7 @@
 #   Feb16 - Created, version 1.0.0
 #   Mar16 - Version 1.1.0
 #   Apr16 - Version 1.1.1, no changes
+#   May17 - Version 1.1.2, no changes
 #
 #' edfReader: A package for reading EDF(+) and BDF(+) files
 #'
@@ -36,8 +37,8 @@
 #' @section Details:
 #'  \tabular{lll}{
 #'   Package \tab \verb{ } \tab edfReader \cr
-#'   Version \tab  \tab 1.1.1 \cr
-#'   Date \tab  \tab April 17, 2016 \cr
+#'   Version \tab  \tab 1.1.2 \cr
+#'   Date \tab  \tab May 18, 2017 \cr
 #'   Licence \tab \tab GPL version 3 or newer \cr
 #'   GitHub \tab  \tab https://github.com/Pisca46/edfReader \cr
 #'   Author \tab  \tab Jan Vis, Vis Consultancy \cr

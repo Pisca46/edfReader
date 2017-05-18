@@ -24,7 +24,8 @@
 #               - annotations data.frame with only one annotation per row (resolves a bug)
 #               - support sub second start specification in first data record (in + file)
 #               - signal names copied from sHeaders
-#  Apr16 - Version 1.1.1, no changes
+#   Apr16 - Version 1.1.1, no changes
+#   May17 - Version 1.1.2, no changes
 #
 # Suffixes (not always used):
 # HRT       : header reference time, i.e. time in sec relative to start of recording as specified in the header.

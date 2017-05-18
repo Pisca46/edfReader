@@ -1,8 +1,8 @@
 Package: edfReader
 Type: Package
 Title: Reading EDF(+) and BDF(+) Files
-Version: 1.1.1
-Date: 2016-04-17
+Version: 1.1.2
+Date: 2017-05-13
 Authors@R: person ("Jan", "Vis", email = "jan@visconsultancy.eu",
   role = c("aut", "cre"))
 Maintainer: Jan Vis <jan@visconsultancy.eu>
@@ -14,7 +14,7 @@ Description: Reads European Data Format files EDF and EDF+, see http://www.edfpl
 License: GPL-3
 LazyData: TRUE
 Imports:
-RoxygenNote: 5.0.1
+RoxygenNote: 6.0.1
 Depends: R (>= 3.2.0)
 Suggests: testthat,
     knitr,

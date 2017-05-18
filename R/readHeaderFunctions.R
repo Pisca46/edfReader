@@ -28,6 +28,9 @@
 #   Mar16 - Version 1.1.0 support for non-unique signals labels
 #                         & sub second start data from data record
 #   Apr16 - Version 1.1.1, no changes
+#   Dec16 - stronger condition for calculating gain and offset. Now equal to those in
+#           readSignalFunction (and to the EDF+ specs)
+#   May17 - Version 1.1.2, no further changes
 # ------------------------------------------------------------------------------
 #                                read EDF header
 # ------------------------------------------------------------------------------
@@ -162,7 +165,7 @@ readEdfHeader <- function (fileName) {
     gain   <- rep (1, ns)
     offset <- rep (0, ns)
     for (i in 1:ns) if (!isAnnotation[i]) {
-        if ((digitalMax[i]  != digitalMin[i]) & (physicalMax[i] != physicalMin[i])) {
+        if ((digitalMin[i] < digitalMax[i]) & (physicalMin[i] != physicalMax[i])) {
             gain[i]   <- (physicalMax[i] - physicalMin[i]) / (digitalMax[i]  - digitalMin[i])
             offset[i] <- physicalMax[i] - gain[i] * digitalMax[i]
         }

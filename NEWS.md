@@ -1,3 +1,9 @@
+## New in version 1.1.2
+
+* a minor bug in testFromTill.R has been corrected.
+
+* some small improvements
+
 ## New in version 1.1.1
 
 * a example of a plot function added to the vignette. 

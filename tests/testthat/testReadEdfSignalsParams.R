@@ -19,6 +19,7 @@
 #   Jan16 - Created
 #   Mar16 - Revised (somewahat more generic & support added for :
 #           files with more then one annotation signal and first record onset != 0
+#   May17 - For version 1.1.2, no changes
 # ------------------------------------------------------------------------------
 require (testthat)
 require (edfReader)

@@ -22,6 +22,7 @@
 #   Jan16 - Created
 #   Mar16 - revised for verion 1.1.0;  test for +D file moved to another file;
 #           suppport for first record onset != 0
+#   May17 - For version 1.1.2, no changes
 # ------------------------------------------------------------------------------
 
 require (testthat)

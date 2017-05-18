@@ -21,6 +21,7 @@
 #   Oct15 - Created
 #   Mar16 - Revised, version 1.1.0
 #   Apr16 - version 1.1.1, no changes
+#   May17 - Version 1.1.2, no changes
 # ------------------------------------------------------------------------------
 #                           s3 header functions
 #                        objects: ebdfHeader & ebdfSHeader

@@ -18,6 +18,8 @@
 # History    :
 #   Jan16 - Created
 #   Mar16 - revised for verion 1.1.0; support added for +D file & first record onset != 0
+#   Dec16 - 'return' replaced with 'return ()'  see email from Duncan Murdoc 13 Nov 16
+#   May17 - For version 1.1.2, no further hanges
 # ------------------------------------------------------------------------------
 #
 require (testthat)
@@ -51,7 +53,7 @@ testASignalsFile <- function (fileNo) {
 
     isAnnotation <- hdr$sHeaders$isAnnotation
     nASignals   <- sum(isAnnotation)
-    if (!nASignals) return
+    if (!nASignals) return ()
 
     # select an annotation signal
     asn         <- sample.int(nASignals, 1)
@@ -158,7 +160,7 @@ testOSignalsFile <- function (fileNo) {
 
     isOSignal   <- !hdr$sHeaders$isAnnotation
     nOSignals   <- sum (isOSignal)
-    if (!nOSignals) return
+    if (!nOSignals) return ()
 
     # select an ordinary signal
     osn <- sample.int(nOSignals, 1)

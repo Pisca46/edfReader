@@ -20,6 +20,7 @@
 #
 # History    :
 #   Mar16 - Created for version 1.1.0
+#   May17 - For version 1.1.2, no changes
 # ------------------------------------------------------------------------------
 
 require (testthat)
