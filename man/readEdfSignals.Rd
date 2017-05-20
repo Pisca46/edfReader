@@ -34,10 +34,10 @@ fragments. If FALSE (the default), a signal is stored as one numeric vector with
 included in the list of annotations.
 If FALSE (the default), they will be omitted.}
 
-\item{mergeASignals}{logical, if TRUE all annotations will wil merged into one data frame. If FALSE
+\item{mergeASignals}{logical, if TRUE all annotations will be merged into one data frame. If FALSE
 there will be one data frame per annotation signal.}
 
-\item{simplify}{logical, if TRUE and if there is only one signal read, the signal itsels is returned
+\item{simplify}{logical, if TRUE and if there is only one signal read, the signal itself is returned
 (in stead of a list with that signal as the only one object).
 If FALSE, this simplification is not performed.}
 }
