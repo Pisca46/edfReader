@@ -6,9 +6,9 @@ Date: 2017-05-13
 Authors@R: person ("Jan", "Vis", email = "jan@visconsultancy.eu",
   role = c("aut", "cre"))
 Maintainer: Jan Vis <jan@visconsultancy.eu>
-Description: Reads European Data Format files EDF and EDF+, see http://www.edfplus.info,
-    BioSemi Data Format files BDF, see http://www.biosemi.com/faq/file_format.htm,
-    and BDF+ files, see http://www.teuniz.net/edfbrowser/bdfplus%20format%20description.html.
+Description: Reads European Data Format files EDF and EDF+, see <http://www.edfplus.info>,
+    BioSemi Data Format files BDF, see <http://www.biosemi.com/faq/file_format.htm>,
+    and BDF+ files, see <http://www.teuniz.net/edfbrowser/bdfplus%20format%20description.html>.
     The files are read in two steps: first the header is read
     and then the signals (using the header object as a parameter).
 License: GPL-3
