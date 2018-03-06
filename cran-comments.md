@@ -1,7 +1,7 @@
 ### Test environments
-* local macOS Sierra with R 3.4.0
+* local macOS High Sierra 10.13.3 with R 3.4.3
 * ubuntu (on travis-ci)
-* Winbuilder with R Under development (unstable) (2017-05-18 r72687)
+* Winbuilder with R Under development (unstable) (2018-03-05 r74359)
 
 ### R CMD check results
 
@@ -13,9 +13,7 @@
 
 This has been checed and:
 
-* both BDF and EDF are correctly spelled
-
-* BioSemi is correctly spelled
+* both BDF and BioSemi are correctly spelled
 
 ### Travis CI result
 
