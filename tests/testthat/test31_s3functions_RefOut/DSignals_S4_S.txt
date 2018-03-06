@@ -1,0 +1,19 @@
+ 
+file: DSignals_S4_S.txt 
+ R / EDF signal       : 4  
+ Name / label         : ECG  
+ Start time           : 2009-12-10 12:44:02   
+ Continuous recording : FALSE  
+ Recorded period      : 11 sec 
+ Total period         : 20 sec 
+ Period read          : whole recording  
+ Sample rate          : 200 /sec 
+ Transducer           :   
+ Range                : -1000 : 1000 uV  
+ Prefilter            :   
+ Bits per sample      : 16  
+ Signal length        : 4000 incl. NAs 
+ Number of samples    : 2200  
+Signal summary
+  Min.    1st Qu.    Median    Mean    3rd Qu.   Max.   NA's 
+ -17.319 -0.0534066 0.015259 0.0205997 0.015259 61.4786 1800 

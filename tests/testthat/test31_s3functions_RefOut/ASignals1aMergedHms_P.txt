@@ -1,0 +1,10 @@
+ 
+file: ASignals1aMergedHms_P.txt 
+ R signal    : 1  
+ Name        : EDF Annotations  
+ Start time  : 2000-01-01 14:15:16.7   
+ Period read : whole recording  
+ Annotations : 8  
+ First onset : 0.049 sec 
+ Last onset  : 1.19 sec 
+ Last end    : 1.167 sec 

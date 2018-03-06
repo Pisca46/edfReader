@@ -1,0 +1,11 @@
+ 
+file: DSignalsF_S4_P.txt 
+ R signal             : 4  
+ Name                 : ECG  
+ Start time           : 2009-12-10 12:44:02   
+ Continuous recording : FALSE  
+ Recorded period      : 11 sec 
+ Total period         : 20 sec 
+ Period read          : whole recording  
+ Sample rate          : 200 /sec 
+ Number of fragments  : 6  

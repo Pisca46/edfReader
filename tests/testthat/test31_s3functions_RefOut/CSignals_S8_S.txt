@@ -1,0 +1,18 @@
+ 
+file: CSignals_S8_S.txt 
+ R signal             : 1  
+ EDF signal           : 8  
+ Name / label         : sine 8.5 Hz  
+ Start time           : 2009-12-10 12:44:02   
+ Continuous recording : TRUE  
+ Recorded period      : 20 sec 
+ Period read          : whole recording  
+ Sample rate          : 200 /sec 
+ Transducer           :   
+ Range                : -1000 : 1000 uV  
+ Prefilter            :   
+ Bits per sample      : 16  
+ Number of samples    : 4000  
+Signal summary
+   Min.   1st Qu.  Median    Mean   3rd Qu.  Max.   
+ -99.9619 -70.695 0.015259 0.015259 70.7256 99.9924 

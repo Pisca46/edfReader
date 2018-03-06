@@ -1,0 +1,14 @@
+ 
+file: DSignal2aF_S.txt 
+Start time            : 2009-12-10 12:44:02   
+Ordinary signals: 
+ Continuous recording : FALSE  
+ Recorded period      : 11 sec 
+ Total period         : 20 sec 
+ Period read          : whole recording  
+ Fragments per signal : 6  
+ Signals 
+ R/EDF  name/label transducer sampleRate preFilter samples 
+ signal                             /sec                   
+ 1      squarewave                   200              2200 
+ 2      ramp                         200              2200 

@@ -1,7 +1,7 @@
 #
 # Purpose   :    Test the use of the 'from' anbd 'till' paraams in readEdfSignals()
 #
-# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2018, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -20,12 +20,13 @@
 #   Mar16 - revised for verion 1.1.0; support added for +D file & first record onset != 0
 #   Dec16 - 'return' replaced with 'return ()'  see email from Duncan Murdoc 13 Nov 16
 #   May17 - For version 1.1.2, no further hanges
+#   Mar18 - For version 1.2.0, no changes
 # ------------------------------------------------------------------------------
 #
 require (testthat)
 require (edfReader)
 
-context ("Compare reading whole files with the export from EDFBrowser.")
+context ("From - till ranges.")
 
 libDir <- paste (system.file("extdata", package="edfReader"), '/', sep='')
 
@@ -51,8 +52,8 @@ testASignalsFile <- function (fileNo) {
     hdr <- sHdrs[[fileNo]]
     cat ("testASignalsFile", sFns[fileNo], '\n')
 
-    isAnnotation <- hdr$sHeaders$isAnnotation
-    nASignals   <- sum(isAnnotation)
+    isAnnotation    <- hdr$sHeaders$isAnnotation
+    nASignals       <- sum(isAnnotation)
     if (!nASignals) return ()
 
     # select an annotation signal
@@ -107,6 +108,8 @@ testASignalsFile <- function (fileNo) {
             till <- o2 - delta
         }
         annotsInRange <- (from <= allOnsets) & (allOnsets < till)
+        # cat ("A3: an empty range precisely specified", "fileNo=", fileNo, "from=", from, "till=, till, '\n")
+        assign (paste ('a3', fileNo, sep='_'), list (asn=asn, from=from, till=till), envir = .GlobalEnv)
         aSignal <- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=FALSE)
         aFSignal<- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=TRUE )
         expect_equal(aSignal, aFSignal)
@@ -122,6 +125,8 @@ testASignalsFile <- function (fileNo) {
         aRange  <- runif(1) * hdr$recordedPeriod
         from    <- runif(1) * (hdr$recordedPeriod - aRange)
         till    <- from + aRange
+        # cat ("A4: A random range 1", "fileNo=", fileNo, "from=", from, "till=, till, '\n")
+        assign (paste ('a4', fileNo, sep='_'), list (asn=asn, from=from, till=till), envir = .GlobalEnv)
         aSignal <- readEdfSignals(hdr, signals=asn, from=from, till=till)
         expect_equal (aSignal$from , from)
         expect_equal (aSignal$till , till)
@@ -132,6 +137,8 @@ testASignalsFile <- function (fileNo) {
         aRange  <- runif(1) * hdr$recordedPeriod
         from    <- runif(1) * (hdr$recordedPeriod - aRange)
         till    <- from + aRange
+        # cat ("A5: A random range 2", "fileNo=", fileNo, "from=", from, "till=, till, '\n")
+        assign (paste ('a5', fileNo, sep='_'), list (asn=asn, from=from, till=till), envir = .GlobalEnv)
         aSignal <- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=FALSE)
         aFSignal<- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=TRUE )
         expect_equal(aSignal, aFSignal)
@@ -144,6 +151,8 @@ testASignalsFile <- function (fileNo) {
         aRange  <- runif(1) * hdr$recordedPeriod
         from    <- runif(1) * (hdr$recordedPeriod - aRange)
         till    <- from + aRange
+        # cat ("A6: A random range 3", "fileNo=", fileNo, "from=", from, "till=, till, '\n")
+        assign (paste ('a6', fileNo, sep='_'), list (asn=asn, from=from, till=till), envir = .GlobalEnv)
         aSignal <- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=FALSE)
         aFSignal<- readEdfSignals(hdr, signals=asn, from=from, till=till, fragment=TRUE )
         expect_equal(aSignal, aFSignal)
@@ -354,7 +363,7 @@ testOSignalsFile <- function (fileNo) {
 
 testCPart <- function (that, hdr, osn, from, till, fromS, wPart) {
     that <- paste ("testCPart: ", that, sep='')
-    # cat (that, '\n')
+    # cat ("  ", that, '\n')
     cPart <- readEdfSignals(hdr, signals=osn, from=from, till=till, fragments = FALSE)
     test_that (that, {
         expect_equal (cPart$from , from)
@@ -372,7 +381,7 @@ testCPart <- function (that, hdr, osn, from, till, fromS, wPart) {
 
 testFPart <- function (that, hdr, osn, from, till, fromS, wPart) {
     that <- paste ("testFPart: ", that, sep='')
-    # cat (that, '\n')
+    # cat ("  ",  that, '\n')
     fSig <- readEdfSignals(hdr, signals=osn, from=from, till=till, fragments=TRUE)
     test_that (that, {
         expect_equal (fSig$till, till)
@@ -404,10 +413,12 @@ testFPart <- function (that, hdr, osn, from, till, fromS, wPart) {
 set.seed (20160101)
 
 testAll <- function () {
+    # test A signals
     testASignalsFile (1)
     testASignalsFile (2)
     testASignalsFile (3)
     testASignalsFile (4)
+    # test O signals
     testOSignalsFile (1)
     testOSignalsFile (2)
     testOSignalsFile (3)

@@ -1,0 +1,10 @@
+ 
+file: ASignalsNotMerged_S2_P.txt 
+ R signal             : 2  
+ Name                 : Channel 1  
+ Start time           : 2000-01-01 14:15:16.7   
+ Continuous recording : TRUE  
+ Recorded period      : 1.2 sec 
+ Period read          : whole recording  
+ Sample rate          : 30000 /sec 
+ Number of samples    : 36000  

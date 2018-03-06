@@ -1,0 +1,15 @@
+ 
+file: AHdr_S.txt 
+File name            : /Users/Jan/Grinds/R/edfReader/inst/extdata/edfAnnonC.edf  
+File type            : EDF+  
+Version              : 0  
+Patient              : X X X X  
+RecordingId          : Startdate 01-JAN-2000 X X X  
+StartTime            : 2000-01-01 14:15:16.7   
+Continuous recording : TRUE  
+Recorded period      : 1.2 sec 
+Ordinary signals     : 2  
+Annotation signals   : 2  
+Labels               : EDF Annotations, Channel 1, EDF Annotations, Channel 2  
+R signal names       : EDF Annotations-1, Channel 1, EDF Annotations-2, Channel 2  
+Note                 : duplicate label names  

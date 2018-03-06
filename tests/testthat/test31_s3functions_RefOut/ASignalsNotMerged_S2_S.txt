@@ -1,0 +1,17 @@
+ 
+file: ASignalsNotMerged_S2_S.txt 
+ R / EDF signal       : 2  
+ Name / label         : Channel 1  
+ Start time           : 2000-01-01 14:15:16.7   
+ Continuous recording : TRUE  
+ Recorded period      : 1.2 sec 
+ Period read          : whole recording  
+ Sample rate          : 30000 /sec 
+ Transducer           :   
+ Range                : -10000 : 10000 uV  
+ Prefilter            :   
+ Bits per sample      : 16  
+ Number of samples    : 36000  
+Signal summary
+   Min.   1st Qu.  Median  Mean  3rd Qu.  Max.   
+ -9765.32 -6859.24 37.232 23.643 6913.86 9765.62 

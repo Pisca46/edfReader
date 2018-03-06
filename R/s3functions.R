@@ -2,7 +2,7 @@
 #
 # Purpose   :   print and summarize functions for ebdf objects
 #
-# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2018, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -22,414 +22,652 @@
 #   Mar16 - Revised, version 1.1.0
 #   Apr16 - version 1.1.1, no changes
 #   May17 - Version 1.1.2, no changes
+#   Feb18 - Based in part on 'printSupport.R'
+#           print/summary signals revised, bug for discontiuous signals removed
+#           diference between R and EDF signal number made explicit
+#           MaxRows and file param added to print and summary functions 
+#   Mar18 - version 1.2.0
 # ------------------------------------------------------------------------------
 #                           s3 header functions
-#                        objects: ebdfHeader & ebdfSHeader
+#                      objects: ebdfHeader & ebdfSHeader
 # ------------------------------------------------------------------------------
+
+minHHmmss <- 300
+
 #' @export
 print.ebdfHeader <- function (x, ...) {                                         # excluding edf/bdf encoding data
-    cat (' Patient               :', x$patient, '\n')
-    cat (' RecordingId           :', x$recordingId, '\n')
-    cat (' StartTime             :', posixltToChar(x$startTime), '\n')
-    cat (' Continuous recording  :', x$isContinuous, '\n')
-    labels <- x$sHeaders$label
-    cat (' Signal labels         :', paste(labels, collapse = ', '), '\n')
-    names <- row.names(x$sHeaders)
-    if (sum(labels != names)) {                                                 # different names, i.e. non-unique labels
-        cat (' R signal names        :', paste(names, collapse = ', '), '\n')
-        cat (' Note                  : duplicate label names')
+    qL      <- newQLines()                                                            # quantity lines
+    names   <- row.names(x$sHeaders)
+    qL$add ('Patient'               , x$patient         )
+    qL$add ('RecordingId'           , x$recordingId     )
+    qL$add ('StartTime'             , x$startTime       )
+    qL$add ('Continuous recording'  , x$isContinuous    )
+    labels  <- x$sHeaders$label
+    qL$add ('Labels'                , paste (labels, collapse = ', '))
+    if (sum (labels != names)) {
+        qL$add ('R signal names'    , paste (names , collapse = ', '))
+        qL$add ('Note'              , 'duplicate label names')
     }
+    ifs <- printQLines (qL, ...)
+    invisible (ifs)
 }
 
 #' @export
 summary.ebdfHeader <- function (object, ...) {
-    suffix <- ifelse (object$isPlus, '+', '')
-    ft     <- paste (object$fileType, suffix, sep='')
-    cat (' File name             :', object$fileName, '\n')
-    cat (' File type             :', ft, '\n')
-    cat (' Version               :', object$version, '\n')
-    cat (' Patient               :', object$patient, '\n')
-    cat (' RecordingId           :', object$recordingId, '\n')
-    cat (' StartTime             :', posixltToChar (object$startTime), '\n')
-    cat (' Continuous recording  :', object$isContinuous, '\n')
-    if (!is.na(object$recordedPeriod)) {
-        cat (' Recorded period       :', secPlusHHMMSS (object$recordedPeriod), '\n')
+    x       <- object
+    qL      <- newQLines()                                                      # quantity lines
+    suffix  <- ifelse (x$isPlus, '+', '')
+    ft      <- paste (x$fileType, suffix, sep='')
+    aCh     <- sum (x$sHeaders$isAnnotation)
+    labels  <- x$sHeaders$label
+    names   <- row.names(x$sHeaders)
+
+    qL$add ('File name'             , x$fileName        )
+    qL$add ('File type'             , ft                )
+    qL$add ('Version'               , x$version         )
+    qL$add ('Patient'               , x$patient         )
+    qL$add ('RecordingId'           , x$recordingId     )
+    qL$add ('StartTime'             , x$startTime       )
+    qL$add ('Continuous recording'  , x$isContinuous    )
+    if (!is.na(x$recordedPeriod)) {
+        qL$add ('Recorded period'   , x$recordedPeriod, etc = secEtc (x$recordedPeriod, ...))
     }
-    aCh <- sum (object$sHeaders$isAnnotation)
-    cat (' Ordinary signals      :', object$nSignals - aCh, '\n')
-    cat (' Annotation signals    :', aCh, '\n')
-    labels <- object$sHeaders$label
-    cat (' Signal labels         :', paste(labels, collapse = ', '), '\n')
-    names <- row.names(object$sHeaders)
-    if (sum(labels != names)) {                                                 # different names, i.e. non-unique labels
-        cat (' R signal names        :', paste(names, collapse = ', '), '\n')
-        cat (' Note                  : duplicate label names')
+    qL$add ('Ordinary signals'      , x$nSignals - aCh  )
+    qL$add ('Annotation signals'    , aCh               )
+    qL$add ('Labels'                , paste (labels, collapse = ', '))
+    if (sum (labels != names)) {
+        qL$add ('R signal names'    , paste (names , collapse = ', '))
+        qL$add ('Note'              , 'duplicate label names')
     }
+    ifs <- printQLines (qL, ...)
+    invisible (ifs)
 }
 
 #' @export
 print.ebdfSHeaders <- function (x, ...) {
-    labels <- x$label
-    cat (' Signal labels         :', paste(labels, collapse = ', '), '\n')
-    names <- row.names(x)
-    if (sum(labels != names)) {                                                 # different names, i.e. non-unique labels
-        cat (' R signal names        :', paste(names, collapse = ', '), '\n')
-        cat (' Note                  : duplicate label names')
+    qL      <- newQLines()
+    labels  <- x$label
+    names   <- row.names(x)
+    qL$add ("Signal labels", paste(labels, collapse = ', '))
+    if (sum (labels != names)) {                                                # different names, i.e. non-unique labels
+        qL$add ("Signal names", paste(names, collapse = ', '))
+        qL$add ("Note", "Duplicate label names")
     }
+    ifs <- printQLines (qL, ...)
+    invisible (ifs)
 }
 
 #' @export
-summary.ebdfSHeaders <- function (object, ...) {
-    sns     <- seq (to=nrow(object))
-    labels  <- object$label
-    names   <- row.names(object)
-    if (!sum(labels == names)) {
-        sdf <- data.frame (signal=sns, label=labels, transducer=object$transducerType,
-                           sampleRate=object$sRate, preFilter= object$preFilter, stringsAsFactors=FALSE)
+summary.ebdfSHeaders <- function (object, maxRows=24, ...) {
+    x       <- object
+    names   <- row.names (x)
+    qT      <- newQTable()
+
+    qT$add (c('EDF', 'signal'), seq (to=nrow(x)))                       # edf file signalnumbering
+    if (sum(x$label != names)==0) {
+        qT$add ('label/name' , names )
     } else {
-        sdf <- data.frame (signal=sns, label=labels, name=names, transducer=object$transducerType,
-                           sampleRate=object$sRate, preFilter= object$preFilter, stringsAsFactors=FALSE)
+        qT$add ('label'       , x$label     )
+        qT$add ('name'        , names       )
     }
-    annons <- which(sdf$label=='EDF Annotations' | sdf$label=='BDF Annotations')
-    if (length(annons)) {
-        sdf$transducer[annons]  <- ' '
-        sdf$sampleRate[annons]  <- NA
-        sdf$preFilter[annons]   <- ' '
-    }
-    sdf
+    qT$add ('transducer'      , x$transducerType, na='n.a.')
+    qT$add ('sample rate'     , x$sRate         , na='n.a.',  u='/sec')
+    qT$add ('preFilter'       , x$preFilter     , na='n.a.')
+    printQTable (qT, nObjects=nrow(x), maxRows=maxRows, ...)
 }
+
 # ------------------------------------------------------------------------------
 #                            s3 lists of signals
 #                            object: ebdfSignals
 # ------------------------------------------------------------------------------
 #' @export
-print.ebdfSignals <- function (x, ...) {
-    printSummarySignals (x, isSumm=FALSE)
+print.ebdfSignals <- function (x, maxRows=24, ...) {
+    if (length(x) == 1 ) print (x[[1]], maxRows=maxRows, ...)
+    else  psSignals (signals=x, isSumm=FALSE, maxRows=maxRows, ...)
 }
 
 #' @export
-summary.ebdfSignals <- function (object, ...) {
-    printSummarySignals (object, isSumm=TRUE)
+summary.ebdfSignals <- function (object, maxRows=24, ...) {
+    if (length(object) == 1 ) summary (object[[1]], maxRows=maxRows, ...)
+    else psSignals (signals=object, isSumm=TRUE, maxRows=maxRows, ...)
 }
 
-printSummarySignals <- function (signals, isSumm) {
-    asn  <- logical( length = length(signals))
-    csn  <- asn
-    fsn  <- asn                     # +D read with frogmented=TRUE
-    for (sn in 1:length(signals)) {
-        if (class (signals[[sn]]) == 'ebdfASignal') asn[sn] <- TRUE
-        if (class (signals[[sn]]) == 'ebdfCSignal') csn[sn] <- TRUE
-        if (class (signals[[sn]]) == 'ebdfFSignal') fsn[sn] <- TRUE
+psSignals <- function (signals, isSumm, maxRows, ...) {
+    # structure:
+    # common lines                              cL  psSignals
+    # common o signal lines (c or d)            oL  addOsLines     
+    # if 1 o   the o signal lines (c or d)      oL  addOsLines
+    # else     o signal table                   oT
+    # common a signal lines                     aL
+    # if 1 a   the a signal lines               aL
+    # else     an a singals table               aT
+    # start  time
+    cL   <- newQLines()
+    cL$add ("Start time", signals[[1]]$startTime)
+    
+    aSignalsL <- sapply (signals, function(X) X$isAnnotation)
+    maxOChars <- 0
+    if (sum (!aSignalsL)) {                     # ordinary signals
+        # ordinary signal common data
+        oSignals    <- signals[!aSignalsL]
+        oL          <- newQLines()
+        addOsLines (oL, oSignals, isSumm=isSumm, ...)
+        if (sum (!aSignalsL)==1) {              # only 1 o signal
+            oT  <- NULL
+        } else {
+            oL$add (" Signals", '', itemOnly=TRUE)
+            # ordinary signals table
+            oT <- newQTable()
+            addOsCols (oT, signals, isSumm=isSumm)
+        }
+        maxOChars   <- itemWidth (oL)
     }
-
-    printSummaryCommonSignalsData      (signals, isSumm=isSumm)
-    if (sum(asn)) printSummaryASignals (signals, asn=asn, isSumm=isSumm)
-    if (sum(csn)) printSummaryCSignals (signals, csn=csn, isSumm=isSumm)
-    if (sum(fsn)) printSummaryFSignals (signals, fsn=fsn, isSumm=isSumm)
-}
-
-printSummaryCommonSignalsData <- function (signals, isSumm) {
-    # osn1, asn1, fns1 : the first in signals if present else 0
-    if (isSumm) {
-        cat (' StartTime               :', posixltToChar(signals[[1]]$startTime), '\n')
+    maxAChars <- 0
+    if (sum (aSignalsL)) {
+        aRN         <- which (aSignalsL)
+        aSignals    <- signals[aSignalsL]
+        aL          <- newQLines()
+        addAsLines (aL=aL, aSignals=aSignals, aRN=aRN, isSumm=isSumm) 
+        if (sum (aSignalsL)==1) {
+            aT  <- NULL
+        } else {
+            aL$add (" Signals", '', itemOnly=TRUE)
+            aT      <- newQTable()
+            addAsCols  (aT, aSignals, aRN=aRN, isSumm=isSumm, ...)  
+        }
+        maxAChars   <- itemWidth (aL)
+    }
+    # get overall itemwidth and print
+    itemWidth <- max (nchar("start time"), maxOChars, maxAChars)
+    cL$itemWidth <- itemWidth
+    printQLines (cL, ...)
+    if (sum (!aSignalsL)) {
+        oL$itemWidth <- itemWidth
+        printQLines (oL, ...)
+        if (!is.null(oT)) printQTable (oT, ...)
+    }
+    if (sum (aSignalsL)) {
+        aL$itemWidth <- itemWidth
+        printQLines (aL, ...)
+        if (!is.null(aT)) printQTable (aT, ...)
     }
 }
 
-printSummaryASignals <- function (signals, asn,  isSumm) {
-    nr  <- sum(asn)
-    cat (ifelse(nr==1,'Annotation signal:', 'Annotation signals:' ), '\n')
-    sns     <- character (length=nr)
-    from    <- character (length=nr)
-    till    <- character (length=nr)
-    n       <- integer   (length=nr)
-    r <- 1
-    for (sn in 1:length(signals)) if (asn[sn]) {
-        sns[r]      <- paste (signals[[sn]]$signalNumber, collapse=',')
-        fromTillN   <- getAnnotsSumASignal (signals[[sn]])
-        from[r]     <- secPlusHHMMSS (fromTillN [1])
-        till[r]     <- secPlusHHMMSS (fromTillN [2])
-        n[r]        <- fromTillN [3]
-        r           <- r +1
+addOsLines <- function (oL, oSignals, isSumm, ...) {
+    one     <- length (oSignals)==1
+    caption <- ifelse (one,'Ordinary signal:', 'Ordinary signals:' )
+    oL$add (caption, '', itemOnly=TRUE)
+    if (one)  {
+        oSignal <- oSignals[[1]]
+        addSignalIdsL (qL=oL, signal=oSignal, isSumm=isSumm)
     }
-    pdf <- data.frame (signal=sns, annotations=n , from=from, till=till, stringsAsFactors = FALSE)
-    print.data.frame  (pdf)
-}
-
-printSummaryCSignals <- function (signals, csn, isSumm) {
-    cat (ifelse(sum(csn)==1,'Ordinary signal:', 'Ordinary signals:' ), '\n')
-    printSummaryOSignalCommon (signals[[which.max(csn)]], isSumm, commonsOnly=TRUE)
-    printSummaryOSignalsList (signals, csn)
-}
-
-printSummaryFSignals <- function (signals, fsn, isSumm) {
-    cat (ifelse(sum(fsn)==1,'Ordinary signal:', 'Ordinary signals:' ), '\n')
-    oSignal <-signals[[which.max(fsn)]]
-    printSummaryOSignalCommon (oSignal, isSumm, commonsOnly=TRUE)
-    printSummaryOSignalsList (signals, fsn)
-}
-
-printSummaryOSignalsList <- function (signals, osn) {
-    nr      <- sum(osn)
-    oLabels <- sapply (signals, function (x){x$label})[osn]
-    oNames  <- names(signals)[osn]
-    dubs    <- sum (oLabels != oNames)
-
-    sns  <- integer   (length=nr)
-    tds  <- character (length=nr)
-    srs  <- numeric   (length=nr)
-    sms  <- integer   (length=nr)
-    pfs  <- character (length=nr)
-    fRS  <- integer   (length=nr)
-    fRT  <- numeric   (length=nr)
-    r <- 1
-    for (sn in 1:length(signals)) if (osn[sn]) {
-        sns[r] <- signals[[sn]]$signalNumber
-        tds[r] <- signals[[sn]]$transducer
-        srs[r] <- signals[[sn]]$sRate
-        sms[r] <- length(signals[[sn]]$signal)
-        pfs[r] <- signals[[sn]]$preFilter
-        r <- r +1
+    addOSRecordingPeriod (qL=oL, oSignal=oSignals[[1]], ...)
+    addOSPeriodRead      (qL=oL, oSignal=oSignals[[1]], ...)
+    isFragmented <- class (oSignals[[1]]) == 'ebdfFSignal'
+    if (isFragmented) {
+        oL$add (" Fragments per signal", length (oSignals[[1]]$fragments))
     }
-    if (!dubs) {
-        psdf <- data.frame (signal=sns, label=oLabels,
-                            transducer=tds, sampleRate=srs, samples=sms,
-                            preFilter=pfs,stringsAsFactors = FALSE)
+    if (one) {
+        oL$add (' Transducer', oSignal$transducer)
+        oL$add (' Sample rate'     , oSignal$sRate, etc='/sec')
+        oL$add (' Range'  , oSignal$range)
+        oL$add (' PreFilter'  , oSignal$preFilter)
+        if (oSignal$isContinuous) {                                     # continuously recorded
+            oL$add (' Samples', length (oSignal$signal))
+        } else if (!isFragmented) {                                     # read with NAs
+            oL$add (' SignalLength',length (oSignal$signal))
+            oL$add (' Samples', oSignal$nSamples)
+        } else {
+            samples <- sum (sapply (oSignal$fragments, function (X) length(X$signal)))
+            oL$add (' Samples', samples)
+        } 
+    }
+}
+
+addOsCols <- function (qT, oSignals, isSumm) {
+    isOSignal   <- sapply (oSignals, function(X) !X$isAnnotation)
+    oSignals    <- oSignals[isOSignal] 
+    isCont      <- oSignals[[1]]$isContinuous                      # continuously recorded
+    isFragm     <- class (oSignals[[1]]) == 'ebdfFSignal'          # discontinuously recorded and read in fragments
+    
+    addSignalIdCols (qT=qT, signals=oSignals, isSumm=isSumm)
+    qT$add ('transducer'      , sapply (oSignals, function(X) X$transducer))
+    qT$add ('sampleRate'      , sapply (oSignals, function(X) X$sRate     ), u='/sec')
+    qT$add ('preFilter'       , sapply (oSignals, function(X) X$preFilter ))
+    if (isCont) {
+        qT$add ('samples'     , sapply (oSignals, function(X) length(X$signal)))
+    } else if (! isFragm) {
+        qT$add ('signalLength', sapply (oSignals, function(X) length(X$signal)))
+        qT$add ('samples'     , sapply (oSignals, function(X) X$nSamples      ))     
     } else {
-        psdf <- data.frame (signal=sns, label=oLabels, name=oNames,
-                            transducer=tds, sampleRate=srs, samples=sms,
-                            preFilter=pfs,stringsAsFactors = FALSE)
+        n       <- length (oSignals)
+        samples <- integer (n)
+        for (i in 1:n) {
+            os          <- oSignals[[i]]
+            samples[i]  <- sum (sapply (os$fragments, function (X) length(X$signal)))
+        }
+        qT$add ('samples'     , samples)  
     }
-    print.data.frame  (psdf)
+}
+
+addAsLines <- function (aL, aSignals, aRN, isSumm, ...) {
+    one     <- length (aSignals)==1
+    caption <- ifelse (one,'Annotation signal:', 'Annotation signals:' )
+    aL$add (caption, '', itemOnly=TRUE)
+    if (one)  {
+        aSignal <- aSignals[[1]]
+        addSignalIdsL (qL=aL,  signal=aSignal, isSumm=isSumm)
+        addAsLDetails (qL=aL, aSignal=aSignal, isSumm=isSumm, ...)
+    } else {
+        addAsPeriodRead (qL=aL, aSignals[[1]], ...)
+    }
+}
+
+addAsCols <- function (qT, aSignals, aRN, isSumm, ...) {
+    firstOnset  <- as.numeric (sapply (aSignals, function(X) X$annotsFrom))
+    lastOnset   <- sapply (aSignals, function(X) X$lastOnset)
+    lastEnd     <- sapply (aSignals, function(X) X$lastEnd)
+    # numbers, names, starts
+    addSignalIdCols (qT=qT, signals=aSignals, isSumm=isSumm)
+    # other details
+    qT$add (c("anno-", "tations"), sapply (aSignals, function(X) nrow (X$annotations)) )
+    addDurCol (qT, c("first", "onset"  ), firstOnset, ...)
+    addDurCol (qT, c("last" , "onset"  ), lastOnset, ...)
+    addDurCol (qT, c("last" , "end"    ), lastEnd, ...)
 }
 
 # ------------------------------------------------------------------------------
-#                           s3 signal functions
-#            objects: ebdfASignal, ebdfCSignal, and ebdfFSignal
+#                           s3 single signal functions                       
+#              objects: ebdfASignal, ebdfCSignal, and ebdfFSignal
 # ------------------------------------------------------------------------------
-#' @export
-print.ebdfASignal <- function (x, ...) {
-    printSummaryASignal (aSignal=x, isSumm=TRUE)
-}
-
-#' @export
-summary.ebdfASignal <- function (object, ...) {
-    printSummaryASignal (aSignal=object, isSumm=TRUE)
-}
-
-printSummaryASignal <- function (aSignal, isSumm) {
-    cat (" Signal number           :", aSignal$signalNumber, '\n')
-    cat (" Label                   :", aSignal$label, '\n')
-    cat (' StartTime               :', posixltToChar(aSignal$startTime), '\n')
-
-
-    rss <- sum (aSignal$annotations$isRecordStart)
-    an  <- nrow (aSignal$annotations) - rss
-    cat (" Record start specs      :", rss, '\n')
-    cat (" Annotations             :", an,  '\n')
-
-    fromTillN   <- getAnnotsSumASignal (aSignal)
-    cat (" Time first annotation   :", secPlusHHMMSS (fromTillN [1]), '\n')
-    cat (" Time last annotation    :", secPlusHHMMSS (fromTillN [2]), '\n')
-}
 
 #' @export
 print.ebdfCSignal <- function (x, ...) {
-    printSummaryOSignalCommon (oSignal=x, isSumm=TRUE, commonsOnly=FALSE)
+    psOSignalCommon (oSignal=x, isSumm=FALSE)
 }
 
 #' @export
-summary.ebdfCSignal <- function (object, ...) {
-    printSummaryOSignalCommon (oSignal=object, isSumm=TRUE, commonsOnly=FALSE)
-    cat (" Signal summary          :\n")
-    summary (object$signal)
+summary.ebdfCSignal <- function (object, maxRows=24, file='', ...) {
+    psOSignalCommon (oSignal=object, isSumm=TRUE)
+    cat ("Signal summary\n", file=file)
+    qT <- newQTable()
+    printNumericSummaries (qT, object$signal, maxRows=maxRows, fil=file, ...)
 }
 
 #' @export
 print.ebdfFSignal <- function (x, ...) {
-    printSummaryOSignalCommon (oSignal=x, isSumm=TRUE, commonsOnly=FALSE)
+    psOSignalCommon (oSignal=x, isSumm=FALSE, ...)
 }
 
 #' @export
-summary.ebdfFSignal <- function (object, ...) {
-    printSummaryOSignalCommon (oSignal=object, isSumm=TRUE, commonsOnly=FALSE)
-    nFragments <- length (object$fragments)
-    rows <- ifelse(nFragments>10, 5, nFragments)                                # 5 if > 10
-    psdf <- getFragmentSummaries (object, rows)
-    print (psdf)
-    if (nFragments > rows) cat ("....", nFragments-rows, "more\n")
-    cat ("All fragments:\n")
-    print (getFragmentsSummary(object))
+summary.ebdfFSignal <- function (object, maxRows=24, file='', ...) {
+    psOSignalCommon (oSignal=object, isSumm=TRUE)
+    cat ("Fragments summaries\n", file=file)
+    printFragmentsSummaries (fSignal=object, maxRows=maxRows, file=file, ...)
+    cat ("Whole recording\n", file=file)
+    printAllFragmentsSummary (fSignal=object, maxRows=maxRows, file=file, ...)
 }
 
-printSummaryOSignalCommon <- function (oSignal, isSumm, commonsOnly) {
+psOSignalCommon <- function (oSignal, isSumm, ...) {
+    qL <- newQLines() 
+    addSignalIdsL        (qL, signal=oSignal, isSumm=isSumm) 
+    qL$add (" Start time", oSignal$startTime)
+    addOSRecordingPeriod (qL, oSignal=oSignal, ...)
+    addOSPeriodRead      (qL, oSignal=oSignal, ...)
+    
+    qL$add (" Sample rate"         , oSignal$sRate           , etc='/sec'   )
 
-    wRecTillRRT <- oSignal$totalPeriod
-    readFromRRT <- max (0,           oSignal$from)
-    readTillRRT <- min (wRecTillRRT, oSignal$till)
-
-    if (!commonsOnly) {
-        cat (" Signal number           :", oSignal$signalNumber, '\n')
-        cat (" Label                   :", oSignal$label, '\n')
+    if (isSumm) {  # a summary
+        qL$add (" Transducer"      , oSignal$transducerType  )
+        qL$add (" Range"           , oSignal$range           )
+        qL$add (" Prefilter"       , oSignal$preFilter       )
+        qL$add (" Bits per sample" ,  oSignal$sampleBits     )
     }
-
-    if (!commonsOnly) {                                                         # exception
-        cat (' StartTime               :', posixltToChar(oSignal$startTime), '\n')
-    }
-
-    cat (" Continuous recording    :", oSignal$isContinuous,   '\n')
-    if (!isSumm) {
-        pReadTxt    <- getPeriodFromText (fromRRT = readFromRRT, tillRRT = readTillRRT,
-                                          wRectillRRT = wRecTillRRT )
-        cat (" Period read             :", pReadTxt, '\n')
-    } else {                                                                    # a summary
-        if (!oSignal$isContinuous) {
-            cat (" Total period            :", secPlusHHMMSS (wRecTillRRT), '\n' )
-            pReadLabel <- " Read from total period  :"
+    if (class (oSignal) == 'ebdfFSignal') {
+        qL$add (" Number of fragments" , length (oSignal$fragments))
+    } else {
+        if (oSignal$isContinuous) {
+            qL$add (" Number of samples"   , length (oSignal$signal))
         } else {
-            pReadLabel <- " Period read             :"
-        }
-        cat (' Recorded period         :', secPlusHHMMSS (oSignal$recordedPeriod), '\n')
-        pReadTxt    <- getPeriodFromText (fromRRT = readFromRRT, tillRRT = readTillRRT)
-        cat (pReadLabel, pReadTxt, '\n')
-
-        if (!commonsOnly) {
-            cat (" Transducer              :", oSignal$transducerType, '\n')
-            cat (" Range                   :", oSignal$range, '\n')
-            cat (" Prefilter               :", oSignal$preFilter, '\n')
-        }
-
-        cat (" Bits per sample         :", oSignal$sampleBits, '\n')
-        if (!commonsOnly) {
-            cat (" Sample rate             :", oSignal$sRate, '\n')
-        }
-
-        if (class (oSignal) == 'ebdfFSignal') {
-            if (commonsOnly) {
-                fragmentsLabel <- " Fragments per signal    :"
-            } else {
-                fragmentsLabel <- " Number of fragments     :"
-            }
-            cat (fragmentsLabel, length (oSignal$fragments), '\n')
-        } else {
-            cat (" Number of samples       :", length (oSignal$signal), '\n')
+            qL$add (" Signal length"       , length    ( oSignal$signal), etc='incl. NAs')
+            qL$add (" Number of samples"   , sum (!is.na(oSignal$signal)))
         }
     }
+    printQLines (qL, ...)
 }
 
-getFragmentsSummary <- function (object) {
-    nFragments  <- length (object$fragments)
-    totalLength <- 0
-    for (i in 1:nFragments) {
-        totalLength <- totalLength + length(object$fragments[[i]]$signal)
-    }
-    totalSignal <- numeric (length = totalLength)
-    from <- 1
-    for (i in 1:nFragments) {
-        l <- length(object$fragments[[i]]$signal)
-        totalSignal[from:(from+l-1)] <- object$fragments[[i]]$signal
+printFragmentsSummaries <- function (fSignal, maxRows=24, file='', ...) {
+    fragments   <- fSignal$fragments  
+    nRows       <- length (fragments)
+    # x <- sapply (fragments, function (X) X$signal)
+    pRows       <- min (maxRows, nRows)
+    x           <- vector (mode='list', length=pRows)
+    for (i in 1:pRows) x[[i]] <- fragments[[i]]$signal
+    qT <- newQTable()
+    qT$add ('fragment', seq(1,pRows))
+    printNumericSummaries (qT, x, maxRows=pRows, file=file, ...)
+    rowsLeft    <- nRows - pRows
+    if (rowsLeft > 0) cat ("...", rowsLeft, 'more fragment\n', file=file)
+}
+
+printAllFragmentsSummary <- function (fSignal, ...) {
+    nFragments  <- length (fSignal$fragments)
+    fLength     <- sapply (fSignal$fragments, function (X) length(X$signal))
+    totalSignal <- numeric (length = sum(fLength))
+    from        <- 1
+    for (i in 1:length (fSignal$fragments)) {
+        l <- fLength[i]
+        totalSignal[from:(from+l-1)] <- fSignal$fragments[[i]]$signal
         from <- from + l
     }
-    summary (totalSignal)
+    qT <- newQTable()
+    printNumericSummaries (qT, totalSignal, ...)
 }
 
-getFragmentSummaries <- function (object, rows) {
-    n       <- integer(length=rows)
-    starts  <- numeric(length=rows)
-    samples <- integer(length=rows)
-    mins    <- numeric(length=rows)
-    q1s     <- numeric(length=rows)
-    medians <- numeric(length=rows)
-    means   <- numeric(length=rows)
-    q3s     <- numeric(length=rows)
-    maxs    <- numeric(length=rows)
-    for (i in 1:rows) {
-        n[i]        <- i
-        starts[i]   <- object$fragments[[i]]$start
-        samples[i]  <- length(object$fragments[[i]]$signal)
-        summ        <- summary (object$fragments[[i]]$signal)
-        mins[i]     <- summ ["Min."]
-        q1s[i]      <- summ ["1st Qu."]
-        medians[i]  <- summ ["Median"]
-        means[i]    <- summ ["Mean"]
-        q3s[i]      <- summ ["3rd Qu."]
-        maxs[i]     <- summ ["Max."]
+printNumericSummaries <- function (qT, x, maxRows='', ...) {                    # ...may contain a file param
+    if (is.numeric (x)) {
+        x <- list (x)
     }
-    psdf <- data.frame (fragment=n, start=starts, samples=samples, "Min."=mins, "1st Qu."=q1s,
-                        "Median"=medians, "Mean"=means, "3rd Qu."=q3s, "Max."=maxs, stringsAsFactors = FALSE)
-    psdf
+    # get summaries
+    nRows   <- length (x)
+    s1      <- summary (x[[1]])
+    nCols   <- length (s1)
+    hdrs    <- names (s1)
+    m       <- matrix (nrow=nRows, ncol=nCols)
+    m[1,]   <- as.numeric (s1)
+    if (nRows > 1) for (i in 2:nRows)  m[i,] <- as.numeric (summary (x[[i]]))
+    
+    # print summaries
+    m   <- roundDecimals(m, signif=6)
+    for (i in 1:nCols) qT$add (hdrs[i], m[,i])
+    printQTable (qT, maxRows=maxRows, ...)
+}
+
+#' @export
+print.ebdfASignal <- function (x, ...) {
+    psASignal (aSignal=x, isSumm=FALSE)
+}
+
+#' @export
+summary.ebdfASignal <- function (object, ...) {
+    psASignal (aSignal=object, isSumm=TRUE)
+}
+
+psASignal <- function (aSignal, isSumm, ...) {
+    qL <- newQLines()
+    aSum        <- getAnnotsSumASignal (aSignal)
+    addSignalIdsL (qL=qL,  signal=aSignal, isSumm=isSumm) 
+    qL$add (" Start time"            , aSignal$startTime   )
+    addAsLDetails (qL=qL, aSignal=aSignal, isSumm=isSumm, ...)
+    printQLines (qL, ...)
 }
 
 # ------------------------------------------------------------------------------
-#                        common functions
+#                            supporting add functions
+# ------------------------------------------------------------------------------
+#                                   signal Ids 
+# ------------------------------------------------------------------------------
+addSignalIdsL <- function (qL, signal, isSumm) {            # used for single signal summary lines 
+    # add signal numbers
+    rN  <- as.character (signal$RSignalNumber)
+    eN  <- paste (signal$signalNumber, collapse = ', ')
+    if (!isSumm) {
+        qL$add (' R signal', rN)
+    } else if (eN == rN) {
+        qL$add (" R / EDF signal", rN) 
+    } else {
+        qL$add (" R signal", rN) 
+        qL$add (" EDF signal", eN) 
+    }
+    # add name / label
+    label   <- signal$label
+    name    <- signal$name
+    if (!isSumm) {
+        qL$add (" Name", name)
+    } else if (label == name)  {                   
+        qL$add (" Name / label", name)
+    } else {                  
+        qL$add (" Name", name)
+        qL$add (" Label", label)   
+    }
+}
+
+addSignalIdCols <- function (qT, signals, isSumm) {
+    eN  <- sapply (signals, function(X) paste(X$signalNumber, collapse = ', '))
+    rN  <- as.character (sapply (signals, function(X) X$RSignalNumber))
+    if (!isSumm) {
+        qT$add (c("R"    , "signal"), rN ) 
+    } else if (sum (eN != rN) == 0) {
+        qT$add (c("R/EDF", "signal"), rN )
+    } else {
+        qT$add (c("R"    , "signal"), rN )
+        qT$add (c("EDF"  , "signal"), eN) 
+    }
+    # names / labels
+    names   <- as.character (sapply (signals, function(X) X$name))
+    labels  <- as.character (sapply (signals, function(X) X$label))
+    if (!isSumm) {
+        qT$add ("name"      , names ) 
+    } else if (sum (names != labels) == 0) {
+        qT$add ("name/label", names )
+    } else {
+        qT$add ("name"      , names )
+        qT$add ("label"     , labels)
+    }
+}
+
+#                                recording period 
 # ------------------------------------------------------------------------------
 
-# period read :  xxxx sec from yyy = recorded period / from start / till end of recording
-getPeriodFromText <- function (fromRRT, fromRS=NULL, tillRRT, wRectillRRT=NULL) {
-
-    periodTxt <- secPlusHHMMSS (tillRRT - fromRRT)
-    if (fromRRT) {
-        periodTxt <- paste (periodTxt, ' starting at ', secPlusHHMMSS (fromRRT), sep='')
+addOSRecordingPeriod <- function (qL, oSignal, ...) {                                # does not make sense for annotations
+    totPeriod   <- oSignal$totalPeriod
+    isCont      <- oSignal$isContinuous
+    
+    qL$add (" Continuous recording", isCont )
+    qL$add (" Recorded period"     , oSignal$recordedPeriod, etc = secEtc (oSignal$recordedPeriod, ...))
+    if (!isCont) {
+        qL$add (" Total period"    , oSignal$totalPeriod   , etc = secEtc (oSignal$totalPeriod   , ...)) 
     }
-    if (!is.null(fromRS)) {
-        periodTxt <- paste (periodTxt, ' at  sample ', fromRS, sep='')
-    }
-
-    if ( !is.null (wRectillRRT)) {                                              # compose additional text
-        isFromStart <- fromRRT == 0
-        isTillEnd   <- wRectillRRT <= tillRRT
-        if (isFromStart & isTillEnd) {                                          # whole recoding
-            periodTxt <- paste (periodTxt, ' = whole recording', sep='')
-        } else if (isFromStart & !isTillEnd ) {                                 # from start till
-            periodTxt <- paste (periodTxt, ' =  from start', sep='')
-        } else if (!isFromStart & isTillEnd ) {                                 # from tlll end
-            periodTxt <- paste (periodTxt, ' till the end', sep='')
+}
+#                                   period read
+# ------------------------------------------------------------------------------
+addOSPeriodRead <- function (qL, oSignal, ...) {                                        
+    totPeriod   <- oSignal$totalPeriod
+    fromV       <- max (0,           oSignal$from)
+    tillV       <- min (totPeriod, oSignal$till)
+    fromStart   <- fromV == 0
+    tillEnd     <- tillV == totPeriod
+    wholeRec    <- fromStart & tillEnd
+    if (!wholeRec) {
+        if (fromStart) {
+            fromV       <- 'start'
+            fromEtc     <- ''
+            # period = till, so don't print
+            periodV     <- ''
+            periodEtc   <- ''
+            periodIO    <- TRUE
+        } else {
+            fromEtc     <- secEtc (fromV, ...) 
+            # period 
+            periodV     <- tillV - fromV
+            periodEtc   <- secEtc (tillV - fromV, ...)
+            periodIO    <- FALSE
+        }
+        if (tillEnd) {
+            tillV       <- 'end'
+            tillEtc     <- ''
+        } else {
+            tillEtc     <- secEtc (tillV, ...)
         }
     }
-    periodTxt
+    
+    if (wholeRec) {
+        qL$add (" Period read" , "whole recording")
+    } else {
+        qL$add (" Period read"   , periodV  , periodEtc, itemOnly=periodIO )
+        qL$add ("   from"        , fromV    , fromEtc)  
+        qL$add ("   till"        , tillV    , tillEtc)  
+    }
 }
+
+addAsLDetails <- function (qL, aSignal, isSumm, ...) {
+    addAsPeriodRead (qL=qL, aSignal=aSignal, ...)
+    if (isSumm) {
+        qL$add (" Record start specs", nrow (aSignal$recordStartTimes))
+    }
+    qL$add (" Annotations", nrow (aSignal$annotations))
+    qL$add (" First onset" , aSignal$annotsFrom, etc=secEtc(aSignal$annotsFrom, ...))
+    qL$add (" Last onset"  , aSignal$lastOnset , etc=secEtc(aSignal$lastOnset , ...))
+    qL$add (" Last end"    , aSignal$lastEnd, etc=secEtc(aSignal$lastEnd, ...))
+    
+}
+
+addAsPeriodRead <- function (qL, aSignal, ...) {
+    fromV       <- max (0, aSignal$from)
+    tillV       <- aSignal$till
+    wholeRec    <- fromV == 0 & tillV == Inf
+    if (!wholeRec) {
+        if (fromV == 0) {
+            fromV       <- 'start'
+            fromEtc     <- ''
+        } else {
+            fromEtc     <- secEtc (fromV, ...)
+        }       
+        if (tillV == Inf) {
+            tillV       <- 'end'
+            tillEtc     <- ''
+        } else {
+            tillEtc     <- secEtc (tillV, ...) 
+        }
+    }
+    if (wholeRec) {
+        qL$add (" Period read"     , "whole recording")
+    } else {
+        qL$add (" Annotation read if:", ''     , itemOnly=TRUE)
+        qL$add ("   end from"         , fromV  , fromEtc)  
+        qL$add ("   onset till"       , tillV  , tillEtc)
+    }
+}
+
+addAsNAnnots <- function (qL, aSignal, isSumm) {
+}
+
+#                             other common functions
+# ------------------------------------------------------------------------------
 
 getAnnotsSumASignal <- function (aSignal) {
-    annots  <- aSignal$annotations
-    onsets  <- annots [!annots$isRecordStart, 'onset']
-    n       <- length (onsets)
-    from    <- onsets [1]
-    till    <- onsets [n]
-    c (from, till, n)
+    oFrom   <- aSignal$from                     # observed from:  from parameter in readEdfSignals
+    oTill   <- aSignal$till                     # observed till: till parameter in readEdfSignals
+    annots  <- aSignal$annotations              # incl record starts
+    n       <- nrow (annots)
+    rss     <- nrow (aSignal$recordStartTimes)
+    aStart  <- annots$onset[1]                  # onset first annotation
+    dur     <- annots$duration      
+    dur[is.na(dur)] <- 0
+    aEnd    <- max (annots$onset+dur)           # end of last annotation (incl duration, if applicable)
+    nAnnots <- nrow (aSignal$annotations) - rss
+    wholeRec<- oFrom == 0  & oTill == Inf
+    list (n=n, rss=rss, wholeRec=wholeRec, oFrom=oFrom, oTill=oTill, aStart=aStart, aEnd=aEnd)
 }
 
-secPlusHHMMSS <- function (sec) {
-    note <- ''
-    if (sec > 60) {
-        hhmmss <- secToHHMMSS (sec)
-        note  <- paste (' (= ', hhmmss, ')', sep='')
+secEtc <- function (t, hmsFrom=300, ymdFrom=2592000, ...) { # 5 minutes and 30 days
+    l           <- length (t)
+    NAs         <- is.na(t)
+    if (l==sum(NAs)) return ('')    
+    # some t not NA
+    etcT        <- character (length=l)
+    etcT[NAs]   <- as.character (NA)
+    nonNAt      <- t[!NAs]
+    if      (max(nonNAt) <= hmsFrom) {
+        etc <- 'sec'
     }
-    paste (sec, ' sec' ,note, sep='')
+    else if (max(nonNAt) <= ymdFrom) {
+        etcT[!NAs]  <- numAsHms(nonNAt)
+        etc         <- paste ("sec = ", paste (etcT,  collapse=' '), " h:m:s", sep='')
+    }
+    else {
+        etcT[!NAs]  <- numAsYmd(nonNAt)
+        etc         <- paste ("sec = ", paste (etcT,  collapse=' '), ' y:m:d', sep='')
+    }
+    etc
 }
 
-secToHHMMSS <- function (sec) {
-    hhmmss <- ''
-    if (sec) {
-        m   <- sec %/% 60    # rounded to minutes
-        hhmmss <- sprintf ('%02d:%02d:%09.6f', m%/%60, m%%60, sec%%60)
-        # remove trailing '0's and '.'
-        n <- nchar(hhmmss)
-        if (n > 8) {
-            while (substr(hhmmss, n, n) == '0') n <- n-1
-            if    (substr(hhmmss, n, n) == '.') n <- n-1
-            hhmmss <- substr(hhmmss, 1, n)
+addDurCol <- function (qT, i, v, hmsFrom=300, ymdFrom=2592000, ...) {   # 5 minutes and 30 days
+    l           <- length (v)
+    NAs         <- is.na (v)
+    if (l==sum(NAs)) {                                                          # all NA
+        qT$add (i, v, u='sec')
+    } else {
+        # some v not NA
+        colV        <- character (length=l)
+        colV[NAs]   <- as.character (NA)
+        nonNAv      <- v[!NAs]
+        if (max (nonNAv) <= hmsFrom) {
+            qT$add (i, v, u='sec')                 # no time conversions
+        } else if (max (nonNAv) <= ymdFrom) {
+            colV[!NAs]  <- numAsHms (nonNAv)
+            qT$add (i, colV, u='h:m:s')
+        } else {
+            colV[!NAs]  <-  numAsYmd (nonNAv)
+            qT$add (i, colV, u='y:m:d')
         }
     }
-    hhmmss
 }
 
-posixltToChar <- function (t) {
-    dt <- format (t, format="%Y-%m-%d %H:%M:%OS9",  usetz = FALSE)
-    n <- nchar(dt)
-    # remove trailing '0's and '.'
-    if (n > 19) {
-        while (substr(dt, n, n) == '0') n <- n-1
-        if    (substr(dt, n, n) == '.') n <- n-1
-        dt <- substr(dt, 1, n)
-    }
-    dt
+numAsYmd <- function (sec) {                    # an EDF sec with no NULL, NA, Inf or neg.
+    n <- length (sec)
+    if (n == 0 ) return ('')
+    dPerY <- 365.2425                           # Gregorian
+ 
+    # isolate NA's  (should be superfluous)  
+    isNa        <- is.na (sec)
+    aSec        <- sec [!isNa]
+    isNeg       <- aSec < 0
+    sgn         <- ifelse (isNeg, '-', '')
+    aSec[isNeg] <- -aSec[isNeg]                 # make positive
+       
+    aDay        <- aSec / 86400                  # 60*60*24
+    aDay        <- roundDecimals (aDay, signif=6) 
+    
+    
+    year        <- aDay / dPerY
+    yy          <- floor (year)
+    month       <- (year-yy) * 12
+    mm          <- floor (month)
+    dd          <- (month - mm) * dPerY / 12
+    ymd         <- sprintf ('%s%02d:%02d:%07.4f', sgn, yy, mm, dd) 
+    ymd         <- gsub ('[.]?0*$', '', ymd)    # remove trailing '0's
+    ymd
+}
+
+numAsHms <-function (sec) {
+    # x <- as.duration (x)
+    # format.duration (x, scaleAs='hhmmss', roundDecimals=NULL)
+    n       <- length (sec)
+    if (n == 0 ) return ('')
+    
+    hhmmss  <- character(length=n)
+    if (is.character(sec))  sec <- asNumeric(sec)
+    if (length(sec) == sum (is.na(sec)))                            return (hhmmss)
+    sClass  <- class (sec)
+    if (length (intersect (sClass, c('numeric', 'integer'))) == 0 ) return (hhmmss)
+    
+    # isolate NA's and sign
+    isNa        <- is.na (sec)
+    aSec        <- sec [!isNa]                                                  # assigned secs
+    isNeg       <- aSec < 0
+    sgn         <- ifelse (isNeg, '-', '')
+    aSec[isNeg] <- -aSec[isNeg]
+    if (!is.null(roundDecimals))    aSec    <- roundDecimals (aSec, signif=6)
+    
+    ss  <- aSec %%  60
+    min <- aSec %/% 60
+    mm  <- min  %%  60
+    hh  <- min  %/% 60
+    
+    hms <- sprintf ('%02d:%02d:%09.6f', hh, mm, ss)
+    hms <- gsub ('[.]?0*$', '', hms)                                            # remove trailing '0's and a '.', if any
+
+    hhmmss[!isNa] <- paste (sgn, hms, sep='')
+    hhmmss
 }

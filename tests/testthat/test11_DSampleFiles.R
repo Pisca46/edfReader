@@ -4,7 +4,7 @@
 #               The +D file should be derived from an +C file by ommitting data records
 #               The +D file is tested againts the original +C file
 #
-# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2018, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -21,11 +21,12 @@
 # History    :
 #   Mar16 - Created for version 1.1.0
 #   May17 - For version 1.1.2, no changes
+#   Mar18 - For version 1.2.0, no changes
 # ------------------------------------------------------------------------------
 
 require (testthat)
 require (edfReader)
-context ("Compare reading whole files with the export from EDFBrowser.")
+context ("Compare whole discontinuous files with the export from EDFBrowser.")
 
 libDir <- paste (system.file("extdata", package="edfReader"), '/', sep='')
 DFns <- 'edfPlusD.edf'                           # a subset of edfPlusC
@@ -50,19 +51,20 @@ for (i in 1:fnsN) SHdrs[[i]] <- readEdfHeader(SFFns[i])
 
 #                          test header and sheader
 # ------------------------------------------------------------------------------
-testDHeader <- function (SHdr, DHdr) {
+testDHeader <- function (SHdr, DHdr, info) {
     # apply changes to SHdr and test equallity with DHdr
     NHdr <- SHdr
     NHdr$fileName       <- DHdr$fileName
 
     if (NHdr$fileType == 'EDF') NHdr$reserved   <- "EDF+D"
     else                        NHdr$reserved   <- "BDF+D"
-    NHdr$isContinuous       <- FALSE
-    NHdr$nRecords           <- DHdr$nRecords
-    NHdr$recordedPeriod     <- DHdr$recordedPeriod
-    NHdr$sHeaders$sLength   <- NHdr$sHeaders$samplesPerRecord * NHdr$nRecords
+    NHdr$isContinuous           <- FALSE
+    NHdr$nRecords               <- DHdr$nRecords
+    NHdr$recordedPeriod         <- DHdr$recordedPeriod
+    NHdr$sHeaders$sLength       <- NHdr$sHeaders$samplesPerRecord * NHdr$nRecords
+    NHdr$sHeaders$sLength[12]   <- as.integer (NA)
     test_that ("DHdr is equal to NHdr", {
-        expect_equal(NHdr, DHdr)
+        expect_equal(NHdr, DHdr, info=info)
     })
 }
 #                          test signals
@@ -210,7 +212,7 @@ testDFile <- function (n) {
     cat (DFns[n], ": Testing header\n")
     SHdr <- SHdrs[[n]]
     DHdr <- DHdrs[[n]]
-    testDHeader   (SHdr = SHdr, DHdr = DHdr)
+    testDHeader   (SHdr = SHdr, DHdr = DHdr, info=n)
 
     cat (DFns[n], ": Testing signals\n")
     SSignals    <- readEdfSignals (SHdr, simplify=FALSE)

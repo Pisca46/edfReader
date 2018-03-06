@@ -2,7 +2,7 @@
 #
 # Purpose   :   Reading .edf(+) & .bdf file headers
 #
-# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2018, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -31,6 +31,12 @@
 #   Dec16 - stronger condition for calculating gain and offset. Now equal to those in
 #           readSignalFunction (and to the EDF+ specs)
 #   May17 - Version 1.1.2, no further changes
+#   Sep17 - NA assigned to insignificant annotation signal parameters
+#           in case hdr$recordD == zero in EDF+: sRate changed from as.logical(NA) to as.numeric(NA)
+#           typeof sLength changed from numeric? to integer
+#           explicit tz='' for hdr$startTime
+#   Feb18 - encoding="UTF-16LE" removed; 
+#   Mar18 - version 1.2.0
 # ------------------------------------------------------------------------------
 #                                read EDF header
 # ------------------------------------------------------------------------------
@@ -77,7 +83,7 @@
 #' @export
 readEdfHeader <- function (fileName) {
     # open the file
-    if (file.exists (fileName)) inFile <- file(fileName, "rb", encoding="UTF-16LE")
+    if (file.exists (fileName)) inFile <- file(fileName, "rb")                  # encoding="UTF-16LE" removed
     else stop (paste ("File '", fileName, "' doesn't exists.", sep=''))
     hdr <- list()
     class (hdr) <- "ebdfHeader"
@@ -107,13 +113,13 @@ readEdfHeader <- function (fileName) {
         substr(dateTimeSring, 11, 11) <- '.'
         substr(dateTimeSring, 14, 14) <- '.'
     }
-    hdr$startTime   <- strptime(dateTimeSring, format="%d.%m.%y %H.%M.%S")      # start date and time of recording
-    # proposed?:       strptime(readChar(inFile, 16, TRUE), format="%d.%m.%y %H:%M:%S") # start date and time of recording
+    hdr$startTime           <- strptime (dateTimeSring, format="%d.%m.%y %H.%M.%S", tz ="") # start date and time of recording
+    hdr$startSecondFraction <- 0
     hdr$headerLength<- as.integer(readChar(inFile, 8, TRUE))                    # number of bytes in header record
-    hdr$reserved    <- gsub ("[[:space:]]*$", "", readChar(inFile, 44, TRUE))   # reserved
-    hdr$nRecords    <- as.integer(readChar(inFile, 8, TRUE))                    # number of data records
-    hdr$recordDuration <- as.numeric(readChar(inFile, 8, TRUE))                 # duration of a data record, in seconds
-    hdr$nSignals    <- as.integer(readChar(inFile, 4, TRUE))                    # number of signals (ns) in data record
+    hdr$reserved            <- gsub ("[[:space:]]*$", "", readChar(inFile, 44, TRUE))   # reserved
+    hdr$nRecords            <- as.integer(readChar(inFile, 8, TRUE))            # number of data records
+    hdr$recordDuration      <- as.numeric(readChar(inFile, 8, TRUE))            # duration of a data record, in seconds
+    hdr$nSignals            <- as.integer(readChar(inFile, 4, TRUE))            # number of signals (ns) in data record
 
     # get the signal headers
     ns <- hdr$nSignals
@@ -141,10 +147,10 @@ readEdfHeader <- function (fileName) {
     close(inFile)
 
     # derived attributes
-    if (hdr$recordDuration)    sRate   <- samplesPerRecord / hdr$recordDuration
-    else                       sRate   <- NA                                    # in EDF+ hdr$recordD may be zero
-    sLength             <-   samplesPerRecord * hdr$nRecords
-    hdr$recordedPeriod  <- hdr$recordDuration * hdr$nRecords
+    if (hdr$recordDuration) sRate   <- samplesPerRecord / hdr$recordDuration
+    else                    sRate   <- as.numeric (NA)                       # in EDF+ hdr$recordD may be zero
+    sLength                         <- as.integer (samplesPerRecord * hdr$nRecords)
+    hdr$recordedPeriod              <- hdr$recordDuration * hdr$nRecords
 
     hdr$sampleBits  <- ifelse (hdr$fileType == 'EDF', 16, 24)
 
@@ -159,6 +165,7 @@ readEdfHeader <- function (fileName) {
     if (hdr$isPlus) for (i in 1:ns) {
         if (label[i] == 'EDF Annotations' | label[i] == 'BDF Annotations') isAnnotation[i] <- TRUE
     }
+
     # physicaL =  gain * digital + offset  with:
     #     gain   = (physicalMax - physicalMin) / (digitalMax  - digitalMin)
     #     offset =  physicalMax - gain * digitalMax
@@ -170,6 +177,23 @@ readEdfHeader <- function (fileName) {
             offset[i] <- physicalMax[i] - gain[i] * digitalMax[i]
         }
     }
+
+    # added in version 2.0.0
+    if (sum(isAnnotation)) {
+        # for annotation signals the only meningfull header values are its label and 'nr of samples in each data record'
+        transducerType  [isAnnotation]  <- as.character (NA)
+        physicalDim     [isAnnotation]  <- as.character (NA)
+        physicalMin     [isAnnotation]  <- as.numeric   (NA)
+        physicalMax     [isAnnotation]  <- as.numeric   (NA)
+        digitalMin      [isAnnotation]  <- as.integer   (NA)
+        digitalMax      [isAnnotation]  <- as.integer   (NA)
+        preFilter       [isAnnotation]  <- as.character (NA)
+        gain            [isAnnotation]  <- as.numeric   (NA)
+        offset          [isAnnotation]  <- as.numeric   (NA)
+        sRate           [isAnnotation]  <- as.numeric   (NA)
+        sLength         [isAnnotation]  <- as.integer   (NA)
+    }
+
     # create signal data frame
     hdr$sHeaders <- data.frame(label=label, transducerType=transducerType, physicalDim=physicalDim,
                               physicalMin=physicalMin, physicalMax=physicalMax,
@@ -199,7 +223,6 @@ readEdfHeader <- function (fileName) {
     }
 
     #  if + file get secondfraction start form first data record
-    hdr$startSecondFraction <- 0
     if (hdr$isPlus) {
         hdr$startSecondFraction <- getStartSecondFraction (hdr)
         hdr$startTime <- hdr$startTime + hdr$startSecondFraction
@@ -217,7 +240,7 @@ getStartSecondFraction <- function (hdr) {
     nAnnots <- sum (hdr$sHeaders$isAnnotation)
     if (hdr$isPlus & nAnnots) {
         annotations1 <- which.max (hdr$sHeaders$isAnnotation)
-        inFile <- file(hdr$fileName, "rb", encoding="UTF-16LE")
+        inFile <- file(hdr$fileName, "rb")                                      # encoding="UTF-16LE" removed
         readBin (inFile, 'raw', n=hdr$headerLength , size=1)
         samples             <- readNextDataRecord (hdr, inFile)
         StartSecondFraction <- getAnnoRecordStartRT (samples[[annotations1]])   # the subsecond start time is in the first TAL in the first annotation signal

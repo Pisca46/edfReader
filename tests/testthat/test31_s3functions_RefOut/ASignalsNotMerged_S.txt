@@ -1,0 +1,20 @@
+ 
+file: ASignalsNotMerged_S.txt 
+Start time            : 2000-01-01 14:15:16.7   
+Ordinary signals: 
+ Continuous recording : TRUE  
+ Recorded period      : 1.2 sec 
+ Period read          : whole recording  
+ Signals 
+ R/EDF  name/label transducer sampleRate preFilter samples 
+ signal                             /sec                   
+ 2      Channel 1                  30000             36000 
+ 4      Channel 2                  20000             24000 
+Annotation signals: 
+ Period read          : whole recording  
+ Signals 
+ R/EDF  name              label             anno- first last  last  
+ signal                                   tations onset onset  end  
+                                                   sec   sec   sec  
+ 1      EDF Annotations-1 EDF Annotations       6 0.1   1.19  1.167 
+ 3      EDF Annotations-2 EDF Annotations       2 0.049 1.019   NA  

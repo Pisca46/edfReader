@@ -1,0 +1,22 @@
+ 
+file: ASignals1o1a_P.txt 
+Start time            : 2000-01-01 14:15:16.7   
+Ordinary signal: 
+ R signal             : 2  
+ Name                 : Channel 1  
+ Continuous recording : TRUE  
+ Recorded period      : 1.2 sec 
+ Period read          : whole recording  
+ Transducer           :   
+ Sample rate          : 30000 /sec 
+ Range                : -10000 : 10000 uV  
+ PreFilter            :   
+ Samples              : 36000  
+Annotation signal: 
+ R signal             : 1  
+ Name                 : EDF Annotations-1  
+ Period read          : whole recording  
+ Annotations          : 6  
+ First onset          : 0.1 sec 
+ Last onset           : 1.19 sec 
+ Last end             : 1.167 sec 

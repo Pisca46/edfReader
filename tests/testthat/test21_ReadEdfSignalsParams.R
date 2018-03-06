@@ -1,7 +1,7 @@
 #
 # Purpose   :    Test the use of readEdfSignals parameters
 #
-# Copyright :   (C) 2015-2016, Vis Consultancy, the Netherlands
+# Copyright :   (C) 2015-2018, Vis Consultancy, the Netherlands
 #               This program is free software: you can redistribute it and/or modify
 #               it under the terms of the GNU General Public License as published by
 #               the Free Software Foundation, either version 3 of the License, or
@@ -20,11 +20,12 @@
 #   Mar16 - Revised (somewahat more generic & support added for :
 #           files with more then one annotation signal and first record onset != 0
 #   May17 - For version 1.1.2, no changes
+#   Mar18 - For version 1.2.0, no changes
 # ------------------------------------------------------------------------------
 require (testthat)
 require (edfReader)
 
-context ("Compare reading whole files with the export from EDFBrowser.")
+context ("readEdfSignals function parameters.")
 
 libDir <- paste (system.file("extdata", package="edfReader"), '/', sep='')
 

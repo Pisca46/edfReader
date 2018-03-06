@@ -1,0 +1,10 @@
+ 
+file: CSignals_S8_P.txt 
+ R signal             : 1  
+ Name                 : sine 8.5 Hz  
+ Start time           : 2009-12-10 12:44:02   
+ Continuous recording : TRUE  
+ Recorded period      : 20 sec 
+ Period read          : whole recording  
+ Sample rate          : 200 /sec 
+ Number of samples    : 4000  
