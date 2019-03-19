@@ -410,6 +410,7 @@ testFPart <- function (that, hdr, osn, from, till, fromS, wPart) {
     }
 }
 
+suppressWarnings(RNGversion("3.5.0"))
 set.seed (20160101)
 
 testAll <- function () {

@@ -1,4 +1,12 @@
 inst/doc
-.Rproj.user
-.Rhistory
 Private
+_gsdata_
+.DS_Store
+.git
+.gitignore
+.RData
+.Rhistory
+.Rprofile
+.Rproj.user
+.travis.yml
+edfReader.Rproj

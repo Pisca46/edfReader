@@ -1,3 +1,8 @@
+## New in version 1.2.1
+
+As the default method for generating from a discrete uniform distribution has been changed in R 3.6.0
+As suggested, suppressWarnings(RNGversion("3.5.0")) has been addded before thw seed statement in test file test20_FromTill.R
+
 ## New in version 1.2.0
 
 ### 1 API change:
